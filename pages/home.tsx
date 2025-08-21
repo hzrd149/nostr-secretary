@@ -90,8 +90,11 @@ export function HomeView({
           <NpubFormComponent error={error} />
         ) : (
           <>
-            <p>Your personal Nostr assistant</p>
-            <div class="nav-links">
+            <p>Your personal Nostr notifications</p>
+            <div class="nav-links" style="flex-direction: column;">
+              <a href="/status" class="nav-link">
+                Status
+              </a>
               <a href="/config" class="nav-link">
                 Configuration
               </a>

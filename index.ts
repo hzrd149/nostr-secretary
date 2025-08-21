@@ -2,6 +2,7 @@ import { serve } from "bun";
 import configRoute from "./pages/config";
 import homeRoute from "./pages/home";
 import mobileRoute from "./pages/mobile";
+import statusRoute from "./pages/status";
 
 // Start listening for notifications
 import "./notifications";
@@ -13,6 +14,7 @@ const server = serve({
     "/": homeRoute,
     "/config": configRoute,
     "/mobile": mobileRoute,
+    "/status": statusRoute,
 
     // Static files
     "/layout.css": () => new Response(Bun.file("./public/layout.css")),

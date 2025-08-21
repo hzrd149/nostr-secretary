@@ -1,5 +1,6 @@
 import config, { configValue } from "./config";
 import { firstValueFrom } from "rxjs";
+import { log } from "./logs";
 
 /**
  * Priority levels for ntfy notifications
@@ -130,22 +131,17 @@ export async function sendNotification(
 ): Promise<NtfyResponse> {
   // Get config values
   const currentConfig = config.getValue();
-  const server = options.server || currentConfig.server;
+  const server = options.server || currentConfig.server || "https://ntfy.sh";
   const topic = options.topic || currentConfig.topic;
 
   // Validate required fields
-  if (!server) {
-    throw new NtfyServiceError("No ntfy server configured", 400);
-  }
-  if (!topic) {
-    throw new NtfyServiceError("No ntfy topic configured", 400);
-  }
-  if (!options.message?.trim()) {
+  if (!server) throw new NtfyServiceError("No ntfy server configured", 400);
+  if (!topic) throw new NtfyServiceError("No ntfy topic configured", 400);
+  if (!options.message?.trim())
     throw new NtfyServiceError("Message is required", 400);
-  }
 
   // Construct URL
-  const url = new URL(topic, server.endsWith("/") ? server : `${server}/`);
+  const url = new URL("/" + topic, server);
 
   // Prepare headers
   const headers: Record<string, string> = {
@@ -192,6 +188,12 @@ export async function sendNotification(
   }
 
   try {
+    log("Sending ntfy notification", {
+      topic,
+      server,
+      options,
+    });
+
     const response = await fetch(url.toString(), {
       method: "POST",
       headers,
@@ -217,13 +219,10 @@ export async function sendNotification(
     const result = (await response.json()) as NtfyResponse;
     return result;
   } catch (error) {
-    if (error instanceof NtfyServiceError) {
-      throw error;
-    }
+    if (error instanceof NtfyServiceError) throw error;
 
-    if (error instanceof Error) {
+    if (error instanceof Error)
       throw new NtfyServiceError(`Network error: ${error.message}`);
-    }
 
     throw new NtfyServiceError("Unknown error occurred");
   }
