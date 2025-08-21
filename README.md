@@ -1,15 +1,12 @@
 # nostr-secretary
 
-To install dependencies:
+Stupid simple nostr notifications.
 
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.2.10. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+1. Download [bun](https://bun.sh) on server
+1. Download [ntfy](https://ntfy.sh) on mobile device
+1. Run `bunx https://github.com/hzrd149/nostr-secretary`
+1. Open [http://localhost:8080](http://localhost:8080)
+1. Enter pubkey
+1. Scan QR code and subscribe to notifications
+1. ...?
+1. Profit!
