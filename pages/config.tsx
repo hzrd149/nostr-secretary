@@ -1,7 +1,7 @@
 import type { RouterTypes } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import config from "../config";
+import config from "../services/config";
 import { normalizeToPubkey } from "applesauce-core/helpers";
 
 export function ConfigView({ saved }: { saved?: boolean }) {
@@ -52,6 +52,31 @@ export function ConfigView({ saved }: { saved?: boolean }) {
             </textarea>
           </div>
 
+          <div class="form-group">
+            <label for="ntfyTopic">Ntfy Topic</label>
+            <div class="help-text">
+              The topic name for your ntfy.sh notifications.
+            </div>
+            <div
+              class="warning-text"
+              style="margin-bottom: 10px; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;"
+            >
+              ⚠️ <strong>Security Warning:</strong> Use a random, unique topic
+              ID. If you use a predictable topic name, other users might be able
+              to subscribe to your notification channel and see your private
+              notifications.
+            </div>
+            <input
+              type="text"
+              id="ntfyTopic"
+              name="ntfyTopic"
+              value={currentConfig.topic || ""}
+              placeholder="Enter a random topic ID..."
+              pattern="[a-zA-Z0-9_-]+"
+              title="Topic should contain only letters, numbers, underscores, and hyphens"
+            />
+          </div>
+
           <div class="button-group">
             <button
               type="button"
@@ -85,6 +110,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
       const formData = await req.formData();
       const user = formData.get("user") as string;
       const lookupRelaysText = formData.get("lookupRelays") as string;
+      const ntfyTopic = formData.get("ntfyTopic") as string;
 
       // Parse lookup relays from textarea (one per line)
       const lookupRelays = lookupRelaysText
@@ -99,6 +125,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
           lookupRelays.length > 0
             ? lookupRelays
             : config.getValue().lookupRelays,
+        topic: ntfyTopic.trim() || config.getValue().topic,
       };
 
       config.next(newConfig);
