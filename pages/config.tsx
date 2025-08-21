@@ -21,15 +21,15 @@ export function ConfigView({ saved }: { saved?: boolean }) {
 
         <form action="/config" method="POST">
           <div class="form-group">
-            <label for="user">User Public Key</label>
+            <label for="pubkey">User Public Key</label>
             <div class="help-text">
               Your Nostr public key in hex format (64 characters)
             </div>
             <input
               type="text"
-              id="user"
-              name="user"
-              value={currentConfig.user || ""}
+              id="pubkey"
+              name="pubkey"
+              value={currentConfig.pubkey || ""}
               placeholder="Enter your hex public key..."
               pattern="[a-fA-F0-9]{64}"
               title="Public key must be 64 hex characters"
@@ -134,7 +134,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
   POST: async (req) => {
     try {
       const formData = await req.formData();
-      const user = formData.get("user") as string;
+      const pubkey = formData.get("pubkey") as string;
       const lookupRelaysText = formData.get("lookupRelays") as string;
       const ntfyServer = formData.get("ntfyServer") as string;
       const ntfyTopic = formData.get("ntfyTopic") as string;
@@ -148,7 +148,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
 
       // Update config
       const newConfig = {
-        user: normalizeToPubkey(user.trim()),
+        pubkey: normalizeToPubkey(pubkey.trim()),
         lookupRelays:
           lookupRelays.length > 0
             ? lookupRelays

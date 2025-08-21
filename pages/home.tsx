@@ -30,79 +30,77 @@ const styles = `
 }
 `;
 
+function NpubFormComponent({ error }: { error?: string }) {
+  return (
+    <>
+      <p>Welcome! Please enter your Nostr npub to get started.</p>
+
+      {error && (
+        <div
+          class="error-message"
+          style="color: red; margin: 10px 0; padding: 10px; border: 1px solid red; border-radius: 4px; background-color: #ffe6e6;"
+        >
+          {error}
+        </div>
+      )}
+
+      <form method="POST" action="/" class="npub-form" style="margin: 20px 0;">
+        <div style="margin-bottom: 15px;">
+          <label
+            for="npub"
+            style="display: block; margin-bottom: 5px; font-weight: bold;"
+          >
+            Your Nostr npub:
+          </label>
+          <input
+            type="text"
+            id="npub"
+            name="npub"
+            placeholder="npub1..."
+            required
+            style="width: 100%; max-width: 500px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"
+          />
+          <small style="display: block; margin-top: 5px; color: #666;">
+            Your npub starts with "npub1" and can be found in your Nostr client
+            settings.
+          </small>
+        </div>
+        <button
+          type="submit"
+          style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
+        >
+          Save Configuration
+        </button>
+      </form>
+    </>
+  );
+}
+
 export function HomeView({
   showNpubForm = false,
   error = "",
 }: { showNpubForm?: boolean; error?: string } = {}) {
-  if (showNpubForm) {
-    return (
-      <Document title="Nostr Secretary - Setup">
-        <div class="home-container">
-          <h1>Nostr Secretary</h1>
-          <p>Welcome! Please enter your Nostr npub to get started.</p>
-
-          {error && (
-            <div
-              class="error-message"
-              style="color: red; margin: 10px 0; padding: 10px; border: 1px solid red; border-radius: 4px; background-color: #ffe6e6;"
-            >
-              {error}
-            </div>
-          )}
-
-          <form
-            method="POST"
-            action="/"
-            class="npub-form"
-            style="margin: 20px 0;"
-          >
-            <div style="margin-bottom: 15px;">
-              <label
-                for="npub"
-                style="display: block; margin-bottom: 5px; font-weight: bold;"
-              >
-                Your Nostr npub:
-              </label>
-              <input
-                type="text"
-                id="npub"
-                name="npub"
-                placeholder="npub1..."
-                required
-                style="width: 100%; max-width: 500px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"
-              />
-              <small style="display: block; margin-top: 5px; color: #666;">
-                Your npub starts with "npub1" and can be found in your Nostr
-                client settings.
-              </small>
-            </div>
-            <button
-              type="submit"
-              style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-            >
-              Save Configuration
-            </button>
-          </form>
-        </div>
-      </Document>
-    );
-  }
-
   return (
     <Document title="Nostr Secretary">
       <style>{styles}</style>
       <div class="home-container">
         <h1>Nostr Secretary</h1>
-        <p>Your personal Nostr assistant</p>
 
-        <div class="nav-links">
-          <a href="/config" class="nav-link">
-            Configuration
-          </a>
-          <a href="/mobile" class="nav-link">
-            Mobile Setup
-          </a>
-        </div>
+        {showNpubForm ? (
+          <NpubFormComponent error={error} />
+        ) : (
+          <>
+            <p>Your personal Nostr assistant</p>
+            <div class="nav-links">
+              <a href="/config" class="nav-link">
+                Configuration
+              </a>
+              <a href="/mobile" class="nav-link">
+                Mobile Setup
+              </a>
+            </div>
+          </>
+        )}
       </div>
     </Document>
   );
@@ -111,7 +109,7 @@ export function HomeView({
 const route: RouterTypes.RouteValue<"/"> = {
   GET: async () => {
     const currentConfig = config.getValue();
-    const showNpubForm = !currentConfig.user;
+    const showNpubForm = !currentConfig.pubkey;
 
     return new Response(await HomeView({ showNpubForm }), {
       headers: { "Content-Type": "text/html" },
@@ -153,7 +151,7 @@ const route: RouterTypes.RouteValue<"/"> = {
 
       // Update config with the new pubkey
       const currentConfig = config.getValue();
-      config.next({ ...currentConfig, user: hexPubkey });
+      config.next({ ...currentConfig, pubkey: hexPubkey });
 
       // Redirect to home page (GET request) to show the main interface
       return new Response("", {

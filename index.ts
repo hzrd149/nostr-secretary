@@ -3,6 +3,9 @@ import configRoute from "./pages/config";
 import homeRoute from "./pages/home";
 import mobileRoute from "./pages/mobile";
 
+// Start listening for notifications
+import "./notifications";
+
 const server = serve({
   port: process.env.PORT ? parseInt(process.env.PORT) : 8080,
   routes: {
@@ -11,6 +14,7 @@ const server = serve({
     "/config": configRoute,
     "/mobile": mobileRoute,
 
+    // Static files
     "/layout.css": () => new Response(Bun.file("./public/layout.css")),
     "/form.css": () => new Response(Bun.file("./public/form.css")),
     "/button.css": () => new Response(Bun.file("./public/button.css")),

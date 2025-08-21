@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 
 export type AppConfig = {
   /** The hex pubkey of the user */
-  user?: string;
+  pubkey?: string;
   /** An array of relays to use when looking up profiles and mailboxes */
   lookupRelays: string[];
   /** The ntfy server to use */
@@ -45,6 +45,10 @@ export function configValue<K extends keyof AppConfig>(
   key: K,
 ): Observable<AppConfig[K]> {
   return config.pipe(map((c) => c[key]));
+}
+
+export function getConfig() {
+  return config.getValue();
 }
 
 export default config;

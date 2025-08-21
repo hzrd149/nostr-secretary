@@ -13,6 +13,7 @@
   "dependencies": {
     "@kitajs/html": "^4.2.9",
     "@kitajs/ts-html-plugin": "^4.1.2",
+    "applesauce-content": "^3.0.0",
     "applesauce-core": "^3.0.1",
     "applesauce-loaders": "^3.0.0",
     "applesauce-relay": "^3.0.0",

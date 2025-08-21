@@ -65,9 +65,9 @@ export function MobileView() {
               <img
                 src={qrCodeUrl}
                 alt="ntfy QR Code"
-                style="border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 15px;"
+                style="margin-bottom: 15px;"
               />
-              <div style="font-family: monospace; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 14px; word-break: break-all;">
+              <div style="font-family: monospace; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 14px; word-break: break-all; user-select: all;">
                 {ntfyLink}
               </div>
             </div>
@@ -190,10 +190,10 @@ export function MobileView() {
         {/* Navigation */}
         <div class="nav-links" style="margin-top: 30px; text-align: center;">
           <a href="/" class="nav-link">
-            ← Back to Home
+            Back to Home
           </a>
           <a href="/config" class="nav-link">
-            Configuration →
+            Configuration
           </a>
         </div>
       </Layout>
