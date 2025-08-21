@@ -1,0 +1,22 @@
+{
+  "name": "nostr-secretary",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "prettier": "^3.6.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@kitajs/html": "^4.2.9",
+    "@kitajs/ts-html-plugin": "^4.1.2",
+    "applesauce-core": "^3.0.1",
+    "applesauce-loaders": "^3.0.0",
+    "applesauce-relay": "^3.0.0",
+    "applesauce-signer": "^0.10.0",
+    "rxjs": "^7.8.2"
+  }
+}
