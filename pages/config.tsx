@@ -107,6 +107,40 @@ export function ConfigView({ saved }: { saved?: boolean }) {
             />
           </div>
 
+          <div class="form-group">
+            <label for="appLink">App Link Template</label>
+            <div class="help-text">
+              Custom app link template for notification clicks. The{" "}
+              <code>{"{link}"}</code> tag will be replaced with the NIP-19
+              encoded nevent or naddr of the event.
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <input
+                type="text"
+                id="appLink"
+                name="appLink"
+                value={currentConfig.appLink || "nostr:{link}"}
+                placeholder="nostr:{link}"
+                style="flex: 1;"
+              />
+              <select
+                id="appLinkPresets"
+                onchange="document.getElementById('appLink').value = this.value"
+                style="min-width: 150px; flex-shrink: 0;"
+              >
+                <option value="">Select preset...</option>
+                <option value="nostr:{link}">Native app</option>
+                <option value="https://nostrudel.ninja/l/{link}">
+                  noStrudel
+                </option>
+                <option value="https://coracle.social/notes/{link}">
+                  Coracle
+                </option>
+                <option value="https://njump.me/{link}">njump</option>
+              </select>
+            </div>
+          </div>
+
           <div class="button-group">
             <button
               type="button"
@@ -139,6 +173,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
       const ntfyServer = formData.get("ntfyServer") as string;
       const ntfyTopic = formData.get("ntfyTopic") as string;
       const email = formData.get("email") as string;
+      const appLink = formData.get("appLink") as string;
 
       // Parse lookup relays from textarea (one per line)
       const lookupRelays = lookupRelaysText
@@ -156,6 +191,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
         server: ntfyServer.trim() || config.getValue().server,
         topic: ntfyTopic.trim() || config.getValue().topic,
         email: email.trim() || config.getValue().email,
+        appLink: appLink.trim() || config.getValue().appLink,
       };
 
       config.next(newConfig);

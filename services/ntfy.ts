@@ -158,6 +158,7 @@ export async function sendNotification(
   if (options.attach) headers["X-Attach"] = options.attach;
   if (options.filename) headers["X-Filename"] = options.filename;
   if (options.email) headers["X-Email"] = options.email;
+  else if (currentConfig.email) headers["X-Email"] = currentConfig.email;
   if (options.call) headers["X-Call"] = options.call;
   if (options.icon) headers["X-Icon"] = options.icon;
   if (options.markdown) headers["X-Markdown"] = "yes";
@@ -250,21 +251,5 @@ export async function sendUrgentNotification(
     title,
     priority: NtfyPriority.High,
     tags: ["warning", "rotating_light"],
-  });
-}
-
-/**
- * Send a notification with email fallback
- */
-export async function sendNotificationWithEmail(
-  message: string,
-  title?: string,
-  email?: string,
-): Promise<NtfyResponse> {
-  const currentConfig = config.getValue();
-  return sendNotification({
-    message,
-    title,
-    email: email || currentConfig.email,
   });
 }

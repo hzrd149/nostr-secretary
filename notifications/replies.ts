@@ -11,6 +11,7 @@ import { getConfig } from "../services/config";
 import { log } from "../services/logs";
 import { eventStore, mailboxes$, tagged$ } from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
+import { buildOpenLink } from "../helpers/config";
 
 tagged$.pipe(filter((event) => event.kind === 1)).subscribe(async (event) => {
   const refs = getNip10References(event);
@@ -47,5 +48,6 @@ tagged$.pipe(filter((event) => event.kind === 1)).subscribe(async (event) => {
     title: `${getDisplayName(profile)} replied to your post`,
     message: event.content,
     icon: getProfilePicture(profile),
+    click: buildOpenLink(event),
   });
 });

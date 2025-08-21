@@ -14,6 +14,7 @@ import { getConfig } from "../services/config";
 import { log } from "../services/logs";
 import { eventStore, tagged$ } from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
+import { buildOpenLink } from "../helpers/config";
 
 tagged$
   .pipe(filter((event) => event.kind === kinds.Zap))
@@ -54,5 +55,6 @@ tagged$
       title: "Zap Received",
       message: `${getDisplayName(profile)} zapped you ${payment?.amount / 1000} sats`,
       icon: getProfilePicture(profile),
+      click: buildOpenLink(event),
     });
   });

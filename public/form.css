@@ -16,8 +16,8 @@ label {
 }
 
 input,
-textarea {
-  width: 100%;
+textarea,
+select {
   padding: 0.75rem;
   border: 2px solid #e2e8f0;
   border-radius: 6px;
@@ -25,8 +25,14 @@ textarea {
   transition: border-color 0.2s;
 }
 
+input,
+textarea {
+  width: 100%;
+}
+
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);

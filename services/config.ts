@@ -14,11 +14,14 @@ export type AppConfig = {
   topic?: string;
   /** A fallback email for notifications */
   email?: string;
+  /** App link template for notification clicks. {link} will be replaced with NIP-19 encoded nevent/naddr */
+  appLink?: string;
 };
 
 const config = new BehaviorSubject<AppConfig>({
   topic: nanoid(),
   lookupRelays: DEFAULT_LOOKUP_RELAYS,
+  appLink: "nostr:{link}",
 });
 
 const CONFIG_PATH = Bun.env.CONFIG ?? "config.json";
