@@ -24,3 +24,28 @@ const server = serve({
 });
 
 console.log(`Server is running on port ${server.port}`);
+
+// Graceful shutdown handling
+let isShuttingDown = false;
+async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) {
+    console.log("Force shutdown...");
+    process.exit(1);
+  }
+
+  isShuttingDown = true;
+  console.log(`\nReceived ${signal}, shutting down gracefully...`);
+
+  try {
+    console.log("Closing HTTP server...");
+    await server.stop();
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during graceful shutdown:", error);
+    process.exit(1);
+  }
+}
+
+// Handle process signals
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

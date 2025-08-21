@@ -1,5 +1,6 @@
 {
   "name": "nostr-secretary",
+  "description": "Stupid simple nostr notifications",
   "module": "index.ts",
   "type": "module",
   "private": true,
