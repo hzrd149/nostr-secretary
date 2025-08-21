@@ -141,6 +141,40 @@ export function ConfigView({ saved }: { saved?: boolean }) {
             </div>
           </div>
 
+          <div class="form-group">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <input
+                type="checkbox"
+                id="directMessageNotifications"
+                name="directMessageNotifications"
+                checked={currentConfig.directMessageNotifications || false}
+                style="margin-top: 4px; width: 20px; height: 20px;"
+              />
+              <div style="flex: 1;">
+                <label
+                  for="directMessageNotifications"
+                  style="font-weight: bold; margin-bottom: 8px; display: block;"
+                >
+                  Enable Direct Message Notifications
+                </label>
+                <div class="help-text">
+                  Receive notifications when you get direct messages (DMs) on
+                  Nostr.
+                </div>
+                <div
+                  class="warning-text"
+                  style="margin-top: 10px; padding: 12px; background-color: #ffe6e6; border: 1px solid #ff9999; border-radius: 4px; color: #cc0000;"
+                >
+                  ⚠️ <strong>Privacy Warning:</strong> Enabling this feature
+                  will send the <strong>unencrypted, plaintext content</strong>{" "}
+                  of your direct messages through the notification server. Only
+                  enable this if you trust your notification server and
+                  understand the privacy implications.
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="button-group">
             <button
               type="button"
@@ -174,6 +208,9 @@ const route: RouterTypes.RouteValue<"/config"> = {
       const ntfyTopic = formData.get("ntfyTopic") as string;
       const email = formData.get("email") as string;
       const appLink = formData.get("appLink") as string;
+      const directMessageNotifications = formData.has(
+        "directMessageNotifications",
+      );
 
       // Parse lookup relays from textarea (one per line)
       const lookupRelays = lookupRelaysText
@@ -189,9 +226,10 @@ const route: RouterTypes.RouteValue<"/config"> = {
             ? lookupRelays
             : config.getValue().lookupRelays,
         server: ntfyServer.trim() || config.getValue().server,
-        topic: ntfyTopic.trim() || config.getValue().topic,
+        topic: ntfyTopic.trim().toLowerCase() || config.getValue().topic,
         email: email.trim() || config.getValue().email,
         appLink: appLink.trim() || config.getValue().appLink,
+        directMessageNotifications,
       };
 
       config.next(newConfig);

@@ -3,6 +3,7 @@ import configRoute from "./pages/config";
 import homeRoute from "./pages/home";
 import mobileRoute from "./pages/mobile";
 import statusRoute from "./pages/status";
+import signerRoute from "./pages/signer";
 
 // Start listening for notifications
 import "./notifications";
@@ -15,6 +16,7 @@ const server = serve({
     "/config": configRoute,
     "/mobile": mobileRoute,
     "/status": statusRoute,
+    "/signer": signerRoute,
 
     // Static files
     "/layout.css": () => new Response(Bun.file("./public/layout.css")),
@@ -49,3 +51,10 @@ async function gracefulShutdown(signal: string) {
 // Handle process signals
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled rejection:", error);
+});
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error);
+});

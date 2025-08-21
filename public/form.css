@@ -70,6 +70,14 @@ textarea {
   display: block;
 }
 
+.error-message {
+  background: #f56565;
+  color: white;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
 .nav-links {
   display: flex;
   gap: 1rem;

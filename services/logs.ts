@@ -1,6 +1,8 @@
-export const logs: { message: string; details: Record<string, any> }[] = [];
-export function log(message: string, details: Record<string, any>) {
-  console.log(message, details);
+export const logs: { message: string; details?: Record<string, any> }[] = [];
+export function log(message: string, details?: Record<string, any>) {
+  if (details) console.log(message, details);
+  else console.log(message);
+
   logs.push({ message, details });
 
   // Prune logs

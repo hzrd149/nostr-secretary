@@ -9,13 +9,16 @@ import {
   getZapSender,
 } from "applesauce-core/helpers";
 import { kinds } from "nostr-tools";
-import { filter, firstValueFrom, of } from "rxjs";
-import { getConfig } from "../services/config";
+import { filter, firstValueFrom, map, of } from "rxjs";
+import { buildOpenLink } from "../helpers/config";
+import { configValue, getConfig } from "../services/config";
 import { log } from "../services/logs";
 import { eventStore, tagged$ } from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
-import { buildOpenLink } from "../helpers/config";
 
+export const enabled$ = configValue("pubkey").pipe(map((pubkey) => !!pubkey));
+
+log("Listening for zaps");
 tagged$
   .pipe(filter((event) => event.kind === kinds.Zap))
   .subscribe(async (zap) => {

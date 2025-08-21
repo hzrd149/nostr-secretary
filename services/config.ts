@@ -1,7 +1,8 @@
-import { BehaviorSubject, map, Observable, skip } from "rxjs";
+import type { SerializedAccount } from "applesauce-accounts";
 import fs from "fs/promises";
-import { DEFAULT_LOOKUP_RELAYS } from "../const";
 import { nanoid } from "nanoid";
+import { BehaviorSubject, map, Observable, skip } from "rxjs";
+import { DEFAULT_LOOKUP_RELAYS } from "../const";
 
 export type AppConfig = {
   /** The hex pubkey of the user */
@@ -16,12 +17,17 @@ export type AppConfig = {
   email?: string;
   /** App link template for notification clicks. {link} will be replaced with NIP-19 encoded nevent/naddr */
   appLink?: string;
+  /** A signer for the user */
+  signer?: SerializedAccount<any, any>;
+  /** Direct message notifications */
+  directMessageNotifications: boolean;
 };
 
 const config = new BehaviorSubject<AppConfig>({
-  topic: nanoid(),
+  topic: nanoid().toLowerCase(),
   lookupRelays: DEFAULT_LOOKUP_RELAYS,
   appLink: "nostr:{link}",
+  directMessageNotifications: false,
 });
 
 const CONFIG_PATH = Bun.env.CONFIG ?? "config.json";
@@ -48,6 +54,14 @@ export function configValue<K extends keyof AppConfig>(
   key: K,
 ): Observable<AppConfig[K]> {
   return config.pipe(map((c) => c[key]));
+}
+
+/** Sets a config value */
+export function updateConfig<K extends keyof AppConfig>(
+  key: K,
+  value: AppConfig[K],
+) {
+  config.next({ ...config.getValue(), [key]: value });
 }
 
 export function getConfig() {

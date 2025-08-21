@@ -1,5 +1,5 @@
 import { getNip10References } from "applesauce-core/helpers/threading";
-import { filter, firstValueFrom } from "rxjs";
+import { filter, firstValueFrom, map } from "rxjs";
 
 import { defined } from "applesauce-core";
 import {
@@ -7,12 +7,15 @@ import {
   getDisplayName,
   getProfilePicture,
 } from "applesauce-core/helpers";
-import { getConfig } from "../services/config";
+import { buildOpenLink } from "../helpers/config";
+import { configValue, getConfig } from "../services/config";
 import { log } from "../services/logs";
 import { eventStore, mailboxes$, tagged$ } from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
-import { buildOpenLink } from "../helpers/config";
 
+export const enabled$ = configValue("pubkey").pipe(map((pubkey) => !!pubkey));
+
+log("Listening for replies");
 tagged$.pipe(filter((event) => event.kind === 1)).subscribe(async (event) => {
   const refs = getNip10References(event);
   if (!refs.reply?.e) return;

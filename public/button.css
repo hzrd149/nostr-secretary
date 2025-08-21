@@ -33,3 +33,13 @@ button {
 .btn-secondary:hover {
   background: #cbd5e0;
 }
+
+.btn-danger {
+  background: #f56565;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #e53e3e;
+  transform: translateY(-1px);
+}
