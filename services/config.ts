@@ -8,6 +8,8 @@ export type AppConfig = {
   user?: string;
   /** An array of relays to use when looking up profiles and mailboxes */
   lookupRelays: string[];
+  /** The ntfy server to use */
+  server?: string;
   /** The ntfy topic to send notifications to */
   topic?: string;
   /** A fallback email for notifications */

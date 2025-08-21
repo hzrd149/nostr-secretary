@@ -3,6 +3,33 @@ import Document from "../components/Document";
 import config from "../services/config";
 import { normalizeToPubkey } from "applesauce-core/helpers";
 
+const styles = `
+.home-container {
+  text-align: center;
+  background: white;
+  padding: 3rem;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 100%;
+  margin: 0 auto;
+  margin-top: 50vh;
+  transform: translateY(-50%);
+}
+
+.home-container h1 {
+  font-size: 2.5rem;
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.home-container p {
+  color: #718096;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+`;
+
 export function HomeView({
   showNpubForm = false,
   error = "",
@@ -63,13 +90,17 @@ export function HomeView({
 
   return (
     <Document title="Nostr Secretary">
+      <style>{styles}</style>
       <div class="home-container">
         <h1>Nostr Secretary</h1>
         <p>Your personal Nostr assistant</p>
 
         <div class="nav-links">
           <a href="/config" class="nav-link">
-            ⚙️ Configuration
+            Configuration
+          </a>
+          <a href="/mobile" class="nav-link">
+            Mobile Setup
           </a>
         </div>
       </div>

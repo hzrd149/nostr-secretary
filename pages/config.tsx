@@ -53,6 +53,21 @@ export function ConfigView({ saved }: { saved?: boolean }) {
           </div>
 
           <div class="form-group">
+            <label for="ntfyServer">Ntfy Server (Optional)</label>
+            <div class="help-text">
+              The ntfy server URL to use for notifications. Defaults to ntfy.sh
+              if not set.
+            </div>
+            <input
+              type="url"
+              id="ntfyServer"
+              name="ntfyServer"
+              value={currentConfig.server || ""}
+              placeholder="https://ntfy.sh (default)"
+            />
+          </div>
+
+          <div class="form-group">
             <label for="ntfyTopic">Ntfy Topic</label>
             <div class="help-text">
               The topic name for your ntfy.sh notifications.
@@ -77,6 +92,21 @@ export function ConfigView({ saved }: { saved?: boolean }) {
             />
           </div>
 
+          <div class="form-group">
+            <label for="email">Email Address (Optional)</label>
+            <div class="help-text">
+              Fallback email address to receive notifications when you don't
+              have the ntfy app available.
+            </div>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={currentConfig.email || ""}
+              placeholder="your.email@example.com"
+            />
+          </div>
+
           <div class="button-group">
             <button
               type="button"
@@ -90,10 +120,6 @@ export function ConfigView({ saved }: { saved?: boolean }) {
             </button>
           </div>
         </form>
-
-        <a href="/" class="nav-link">
-          ← Back to Home
-        </a>
       </Layout>
     </Document>
   );
@@ -110,7 +136,9 @@ const route: RouterTypes.RouteValue<"/config"> = {
       const formData = await req.formData();
       const user = formData.get("user") as string;
       const lookupRelaysText = formData.get("lookupRelays") as string;
+      const ntfyServer = formData.get("ntfyServer") as string;
       const ntfyTopic = formData.get("ntfyTopic") as string;
+      const email = formData.get("email") as string;
 
       // Parse lookup relays from textarea (one per line)
       const lookupRelays = lookupRelaysText
@@ -125,7 +153,9 @@ const route: RouterTypes.RouteValue<"/config"> = {
           lookupRelays.length > 0
             ? lookupRelays
             : config.getValue().lookupRelays,
+        server: ntfyServer.trim() || config.getValue().server,
         topic: ntfyTopic.trim() || config.getValue().topic,
+        email: email.trim() || config.getValue().email,
       };
 
       config.next(newConfig);

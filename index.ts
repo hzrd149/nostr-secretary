@@ -1,6 +1,7 @@
 import { serve } from "bun";
 import configRoute from "./pages/config";
 import homeRoute from "./pages/home";
+import mobileRoute from "./pages/mobile";
 
 const server = serve({
   port: process.env.PORT ? parseInt(process.env.PORT) : 8080,
@@ -8,12 +9,11 @@ const server = serve({
     // Static routes
     "/": homeRoute,
     "/config": configRoute,
-  },
+    "/mobile": mobileRoute,
 
-  // (optional) fallback for unmatched routes:
-  // Required if Bun's version < 1.2.3
-  fetch(req) {
-    return new Response("Not Found", { status: 404 });
+    "/layout.css": () => new Response(Bun.file("./public/layout.css")),
+    "/form.css": () => new Response(Bun.file("./public/form.css")),
+    "/button.css": () => new Response(Bun.file("./public/button.css")),
   },
 });
 
