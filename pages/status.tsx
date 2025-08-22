@@ -2,7 +2,8 @@ import type { RouterTypes } from "bun";
 import { firstValueFrom } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import { mailboxes$, messageInboxes$, pool } from "../services/nostr";
+import { mailboxes$, messageInboxes$, pool, groups$ } from "../services/nostr";
+import { getConfig } from "../services/config";
 
 const statusPageStyles = `
   .status-container {
@@ -70,6 +71,11 @@ const statusPageStyles = `
   .relay-type.dm {
     background-color: #fff3e0;
     color: #f57c00;
+  }
+
+  .relay-type.group {
+    background-color: #e8f5e8;
+    color: #2e7d32;
   }
 
   .relay-status {
@@ -201,7 +207,7 @@ async function RelayStatusItem({
   type,
 }: {
   url: string;
-  type: "inbox" | "outbox" | "dm";
+  type: "inbox" | "outbox" | "dm" | "group";
 }) {
   let connected = false;
   let authenticated = false;
@@ -365,6 +371,62 @@ async function DirectMessageRelaysList() {
   }
 }
 
+async function GroupRelaysList() {
+  try {
+    // Get the groups to find all relay URLs
+    const groupsList = await firstValueFrom(groups$);
+
+    if (!groupsList || !groupsList.tags) {
+      return (
+        <div class="relay-status-list">
+          <div class="no-relays">
+            <p>No group relays found.</p>
+            <p>
+              Groups are configured automatically from your NIP-51 groups list.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    const relayItems = [];
+    const groupRelays = new Set<string>();
+
+    // Extract group relays from group tags
+    for (const tag of groupsList.tags) {
+      if (tag[0] === "group" && tag[2]) {
+        groupRelays.add(tag[2]); // tag[2] is the relay URL
+      }
+    }
+
+    // Add group relays
+    for (const relayUrl of groupRelays) {
+      relayItems.push(await RelayStatusItem({ url: relayUrl, type: "group" }));
+    }
+
+    return (
+      <div class="relay-status-list">
+        {relayItems.length === 0 ? (
+          <div class="no-relays">
+            <p>No group relays configured.</p>
+          </div>
+        ) : (
+          relayItems
+        )}
+      </div>
+    );
+  } catch (error) {
+    console.error("Error loading group relay statuses:", error);
+    return (
+      <div class="relay-status-list">
+        <div class="no-relays">
+          <p>Error loading group relay status.</p>
+        </div>
+      </div>
+    );
+  }
+}
+
 function StatusPageButtons() {
   return (
     <div class="button-group">
@@ -394,6 +456,10 @@ function StatusPageButtons() {
 }
 
 export async function StatusView() {
+  // Check if groups are enabled to conditionally show the section
+  const config = getConfig();
+  const groupsEnabled = config.groups.enabled;
+
   return (
     <Document title="Status">
       <Layout
@@ -410,6 +476,13 @@ export async function StatusView() {
             <h3>💬 Direct Message Relays</h3>
             <DirectMessageRelaysList />
           </div>
+
+          {groupsEnabled && (
+            <div class="status-section">
+              <h3>👥 Group Relays</h3>
+              <GroupRelaysList />
+            </div>
+          )}
 
           <StatusPageButtons />
         </div>

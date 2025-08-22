@@ -2,3 +2,4 @@
 import "./replies";
 import "./zaps";
 import "./messages";
+import "./groups";

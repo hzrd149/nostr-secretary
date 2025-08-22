@@ -14,7 +14,7 @@
     "prettier": "^3.6.2"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@kitajs/html": "^4.2.9",

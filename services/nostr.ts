@@ -27,6 +27,7 @@ import {
   mergeWith,
   NEVER,
   of,
+  ReplaySubject,
   share,
   shareReplay,
   skip,
@@ -35,9 +36,9 @@ import {
 } from "rxjs";
 
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
+import { loadLists } from "../helpers/lists";
 import config$, { configValue } from "./config";
 import { log } from "./logs";
-import { loadLists } from "../helpers/lists";
 
 export const eventStore = new EventStore();
 export const pool = new RelayPool();
@@ -240,12 +241,13 @@ export const groups$ = combineLatest([user$, mailboxes$]).pipe(
 );
 
 /** An observable that loads the users people lists */
-export const peopleLists$ = combineLatest([user$, mailboxes$]).pipe(
+export const lists$ = combineLatest([user$, mailboxes$]).pipe(
   switchMap(([user, mailboxes]) =>
-    listsLoader({ pubkey: user, relays: mailboxes?.outboxes }).pipe(
-      toArray(),
-      mergeWith(NEVER),
-    ),
+    listsLoader({ pubkey: user, relays: mailboxes?.outboxes }).pipe(toArray()),
   ),
-  shareReplay(1),
+  share({
+    resetOnRefCountZero: false,
+    resetOnComplete: false,
+    connector: () => new ReplaySubject(1),
+  }),
 );

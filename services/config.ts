@@ -2,7 +2,7 @@ import type { SerializedAccount } from "applesauce-accounts";
 import fs from "fs/promises";
 import { nanoid } from "nanoid";
 import { BehaviorSubject, map, Observable, skip } from "rxjs";
-import { DEFAULT_LOOKUP_RELAYS } from "../const";
+import { CACHI_GROUP_LINK, DEFAULT_LOOKUP_RELAYS } from "../const";
 
 export type AppConfig = {
   /** The hex pubkey of the user */
@@ -42,6 +42,13 @@ export type AppConfig = {
     whitelists: string[];
     blacklists: string[];
   };
+  /** Groups notifications */
+  groups: {
+    enabled: boolean;
+    whitelists: string[];
+    blacklists: string[];
+    groupLink: string;
+  };
 };
 
 const config$ = new BehaviorSubject<AppConfig>({
@@ -57,14 +64,20 @@ const config$ = new BehaviorSubject<AppConfig>({
     blacklists: [],
   },
   replies: {
-    enabled: false,
+    enabled: true,
     whitelists: [],
     blacklists: [],
   },
   zaps: {
-    enabled: false,
+    enabled: true,
     whitelists: [],
     blacklists: [],
+  },
+  groups: {
+    enabled: true,
+    whitelists: [],
+    blacklists: [],
+    groupLink: CACHI_GROUP_LINK,
   },
 });
 

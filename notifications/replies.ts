@@ -7,7 +7,7 @@ import {
   getDisplayName,
   getProfilePicture,
 } from "applesauce-core/helpers";
-import { buildOpenLink } from "../helpers/config";
+import { buildOpenLink } from "../helpers/link";
 import { loadLists } from "../helpers/lists";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";

@@ -1,7 +1,7 @@
 import { getTagValue } from "applesauce-core/helpers";
 import { kinds, type NostrEvent } from "nostr-tools";
 import { firstValueFrom, of, timeout, toArray } from "rxjs";
-import { peopleLists$ } from "../services/nostr";
+import { lists$ } from "../services/nostr";
 
 export interface WhitelistBlacklistProps {
   whitelists: string[];
@@ -15,7 +15,7 @@ export default async function WhitelistBlacklist({
   pubkey,
 }: WhitelistBlacklistProps) {
   const lists = await firstValueFrom(
-    peopleLists$.pipe(timeout({ first: 2000, with: () => of(undefined) })),
+    lists$.pipe(timeout({ first: 2000, with: () => of(undefined) })),
   );
 
   // Filter to get only follow sets (kind 30000)

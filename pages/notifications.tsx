@@ -5,6 +5,7 @@ import Layout from "../components/Layout";
 import * as messagesNotification from "../notifications/messages";
 import * as repliesNotification from "../notifications/replies";
 import * as zapsNotification from "../notifications/zaps";
+import * as groupsNotification from "../notifications/groups";
 
 const notificationStyles = `
   .notifications-container {
@@ -205,6 +206,9 @@ async function NotificationsList() {
   const zapsEnabled = await firstValueFrom(zapsNotification.enabled$).catch(
     () => false,
   );
+  const groupsEnabled = await firstValueFrom(groupsNotification.enabled$).catch(
+    () => false,
+  );
 
   return (
     <div class="notification-section">
@@ -263,6 +267,26 @@ async function NotificationsList() {
             {zapsEnabled ? "Enabled" : "Disabled"}
           </span>
           <a href="/zaps" class="config-btn">
+            Configure
+          </a>
+        </div>
+      </div>
+
+      <div class="notification-item">
+        <div class="notification-info">
+          <div class="notification-name">👥 Groups</div>
+          <div class="notification-description">
+            Get notified about activity in your NIP-29 groups (channels).
+            Configure group-specific whitelists and blacklists.
+          </div>
+        </div>
+        <div class="notification-actions">
+          <span
+            class={`notification-status ${groupsEnabled ? "enabled" : "disabled"}`}
+          >
+            {groupsEnabled ? "Enabled" : "Disabled"}
+          </span>
+          <a href="/groups" class="config-btn">
             Configure
           </a>
         </div>

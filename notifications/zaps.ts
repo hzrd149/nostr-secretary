@@ -10,7 +10,7 @@ import {
 } from "applesauce-core/helpers";
 import { kinds } from "nostr-tools";
 import { filter, firstValueFrom, map, NEVER, of, switchMap } from "rxjs";
-import { buildOpenLink } from "../helpers/config";
+import { buildOpenLink } from "../helpers/link";
 import { loadLists } from "../helpers/lists";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";

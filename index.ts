@@ -8,6 +8,7 @@ import statusRoute from "./pages/status";
 import signerRoute from "./pages/signer";
 import zapsRoute from "./pages/zaps";
 import repliesRoute from "./pages/replies";
+import groupsRoute from "./pages/groups";
 
 // Start listening for notifications
 import "./notifications";
@@ -25,6 +26,7 @@ const server = serve({
     "/signer": signerRoute,
     "/zaps": zapsRoute,
     "/replies": repliesRoute,
+    "/groups": groupsRoute,
 
     // Static files
     "/layout.css": () => new Response(Bun.file("./public/layout.css")),
