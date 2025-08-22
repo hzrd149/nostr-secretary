@@ -238,6 +238,11 @@ export const groups$ = combineLatest([user$, mailboxes$]).pipe(
       pubkey: user,
     });
   }),
+  share({
+    resetOnRefCountZero: false,
+    resetOnComplete: false,
+    connector: () => new ReplaySubject(1),
+  }),
 );
 
 /** An observable that loads the users people lists */
