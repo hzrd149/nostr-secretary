@@ -1,4 +1,4 @@
-import { defined, withImmediateValueOrDefault } from "applesauce-core";
+import { defined } from "applesauce-core";
 import {
   getDisplayName,
   getLegacyMessageCorraspondant,
@@ -21,25 +21,58 @@ import {
   switchMap,
   tap,
 } from "rxjs";
-import { configValue, getConfig } from "../services/config";
+
+import { loadLists } from "../helpers/lists";
+import config$, { getConfig } from "../services/config";
+import { log } from "../services/logs";
 import {
+  blacklist$,
   eventStore,
   giftWraps$,
   messageInboxes$,
   signer$,
   tagged$,
+  whitelist$,
 } from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
-import { log } from "../services/logs";
+
+/** Check if a sender should receive notifications based on whitelist/blacklist */
+async function shouldNotify(pubkey: string): Promise<boolean> {
+  const { messages } = getConfig();
+
+  // If there are blacklists, check if sender is blacklisted
+  if (messages.blacklists.length > 0) {
+    const blacklistedPubkeys = await loadLists(messages.blacklists);
+    if (blacklistedPubkeys.includes(pubkey)) return false;
+  }
+
+  // If there are whitelists, only allow whitelisted senders
+  if (messages.whitelists.length > 0) {
+    const whitelistedPubkeys = await loadLists(messages.whitelists);
+    return whitelistedPubkeys.includes(pubkey);
+  }
+
+  // if they are not on the global whitelist
+  const whitelist = await firstValueFrom(whitelist$);
+  if (whitelist.length > 0 && !whitelist.includes(pubkey)) return false;
+
+  // if they are on the global blacklist
+  const blacklist = await firstValueFrom(blacklist$);
+  if (blacklist.length > 0 && blacklist.includes(pubkey)) return false;
+
+  // If no whitelists, allow everyone (except blacklisted)
+  return true;
+}
 
 /** If the direct message notifications are enabled */
-export const enabled$ = configValue("directMessageNotifications").pipe(
+export const enabled$ = config$.pipe(
+  map((c) => c.messages.enabled),
   // Get signer and inboxes
   switchMap((enabled) =>
     enabled
-      ? combineLatest([signer$, messageInboxes$]).pipe(
+      ? messageInboxes$.pipe(
           // If signer and inboxes are defined, and there are inboxes, then the notifications are enabled
-          map(([signer, relays]) => !!signer && !!relays && relays?.length > 0),
+          map((relays) => !!relays && relays?.length > 0),
         )
       : of(false),
   ),
@@ -90,12 +123,22 @@ enbaledSigner
     ),
     defined(),
   )
-  .subscribe(async ({ profile, content }) => {
+  .subscribe(async ({ sender, profile, content }) => {
     if (!content) return;
 
+    // Check if we should notify for this sender
+    if (!(await shouldNotify(sender)))
+      return log(
+        "Skipping notification for blacklisted/non-whitelisted sender",
+        { sender },
+      );
+
+    const { messages } = getConfig();
+    const displayName = getDisplayName(profile);
+
     await sendNotification({
-      title: `${getDisplayName(profile)} sent you a message`,
-      message: content,
+      title: `${displayName} sent you a message`,
+      message: messages.sendContent ? content : "[content omitted]",
       icon: getProfilePicture(profile),
     });
   });
@@ -130,18 +173,29 @@ enbaledSigner
     filter((rumor) => rumor.kind === kinds.PrivateDirectMessage),
   )
   .subscribe(async (rumor) => {
-    const { pubkey } = getConfig();
+    const { pubkey, messages } = getConfig();
     if (!pubkey) return;
 
     const sender = rumor.pubkey;
+
+    // Check if we should notify for this sender
+    if (!(await shouldNotify(sender)))
+      return log(
+        "Skipping notification for blacklisted/non-whitelisted sender",
+        {
+          sender,
+        },
+      );
+
     const profile = await firstValueFrom(
       eventStore.profile(sender).pipe(defined()),
     );
     const content = rumor.content;
+    const displayName = getDisplayName(profile);
 
     await sendNotification({
-      title: `${getDisplayName(profile)} sent you a message`,
-      message: content,
+      title: `${displayName} sent you a message`,
+      message: messages.sendContent ? content : "[content omitted]",
       icon: getProfilePicture(profile),
     });
   });

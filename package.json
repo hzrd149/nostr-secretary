@@ -6,6 +6,9 @@
   "type": "module",
   "private": true,
   "bin": "index.ts",
+  "scripts": {
+    "dev": "bun run --watch index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "prettier": "^3.6.2"

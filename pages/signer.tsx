@@ -1,7 +1,7 @@
 import type { RouterTypes } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import config, { updateConfig } from "../services/config";
+import config$, { updateConfig } from "../services/config";
 import { NostrConnectSigner } from "applesauce-signers";
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { signer$ } from "../services/nostr";
@@ -13,7 +13,7 @@ export function SignerView({
   saved?: boolean;
   error?: string;
 }) {
-  const currentConfig = config.getValue();
+  const currentConfig = config$.getValue();
   const hasSigner = !!currentConfig.signer;
 
   return (
@@ -152,8 +152,8 @@ const route: RouterTypes.RouteValue<"/signer"> = {
 
       if (method === "PATCH") {
         // Disconnect signer
-        const currentConfig = config.getValue();
-        config.next({ ...currentConfig, signer: undefined });
+        const currentConfig = config$.getValue();
+        config$.next({ ...currentConfig, signer: undefined });
 
         return new Response(await SignerView({ saved: true }), {
           headers: { "Content-Type": "text/html" },
@@ -187,7 +187,7 @@ const route: RouterTypes.RouteValue<"/signer"> = {
           signer$.next(account);
 
           // Update the config
-          updateConfig("signer", account.toJSON());
+          updateConfig({ signer: account.toJSON() });
 
           return new Response(await SignerView({ saved: true }), {
             headers: { "Content-Type": "text/html" },

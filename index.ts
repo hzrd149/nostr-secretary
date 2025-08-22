@@ -1,7 +1,9 @@
 import { serve } from "bun";
 import configRoute from "./pages/config";
 import homeRoute from "./pages/home";
+import messagesRoute from "./pages/messages";
 import mobileRoute from "./pages/mobile";
+import notificationsRoute from "./pages/notifications";
 import statusRoute from "./pages/status";
 import signerRoute from "./pages/signer";
 
@@ -14,7 +16,9 @@ const server = serve({
     // Static routes
     "/": homeRoute,
     "/config": configRoute,
+    "/messages": messagesRoute,
     "/mobile": mobileRoute,
+    "/notifications": notificationsRoute,
     "/status": statusRoute,
     "/signer": signerRoute,
 

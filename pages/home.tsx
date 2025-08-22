@@ -1,6 +1,6 @@
 import type { RouterTypes } from "bun";
 import Document from "../components/Document";
-import config from "../services/config";
+import config$ from "../services/config";
 import { normalizeToPubkey } from "applesauce-core/helpers";
 import { firstValueFrom } from "rxjs";
 import { mailboxes$, messageInboxes$, pool } from "../services/nostr";
@@ -282,6 +282,9 @@ export function HomeView({
               <a href="/config" class="nav-link">
                 Configuration
               </a>
+              <a href="/notifications" class="nav-link">
+                Notifications
+              </a>
               <a href="/mobile" class="nav-link">
                 Mobile Setup
               </a>
@@ -298,7 +301,7 @@ export function HomeView({
 
 const route: RouterTypes.RouteValue<"/"> = {
   GET: async () => {
-    const currentConfig = config.getValue();
+    const currentConfig = config$.getValue();
     const showNpubForm = !currentConfig.pubkey;
 
     return new Response(await HomeView({ showNpubForm }), {
@@ -340,8 +343,8 @@ const route: RouterTypes.RouteValue<"/"> = {
       }
 
       // Update config with the new pubkey
-      const currentConfig = config.getValue();
-      config.next({ ...currentConfig, pubkey: hexPubkey });
+      const currentConfig = config$.getValue();
+      config$.next({ ...currentConfig, pubkey: hexPubkey });
 
       // Redirect to home page (GET request) to show the main interface
       return new Response("", {

@@ -32,8 +32,9 @@ import {
 } from "rxjs";
 
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
-import config, { configValue } from "./config";
+import config$, { configValue } from "./config";
 import { log } from "./logs";
+import { loadLists } from "../helpers/lists";
 
 export const eventStore = new EventStore();
 export const pool = new RelayPool();
@@ -42,7 +43,7 @@ export const pool = new RelayPool();
 NostrConnectSigner.subscriptionMethod = pool.subscription.bind(pool);
 NostrConnectSigner.publishMethod = pool.publish.bind(pool);
 
-const lookupRelays = config.pipe(map((c) => c.lookupRelays));
+const lookupRelays = config$.pipe(map((c) => c.lookupRelays));
 export const addressLoader = createAddressLoader(pool, { lookupRelays });
 export const eventLoader = createEventLoader(pool);
 
@@ -206,4 +207,16 @@ export const giftWraps$ = combineLatest([
   skip(1),
   mapEventsToStore(eventStore),
   share(),
+);
+
+/** An observable of the global whitelist */
+export const whitelist$ = configValue("whitelists").pipe(
+  switchMap(loadLists),
+  shareReplay(1),
+);
+
+/** An observable of the global blacklist */
+export const blacklist$ = configValue("blacklists").pipe(
+  switchMap(loadLists),
+  shareReplay(1),
 );

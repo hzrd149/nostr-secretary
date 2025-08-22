@@ -1,10 +1,10 @@
 import type { RouterTypes } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import config from "../services/config";
+import config$ from "../services/config";
 
 export function MobileView() {
-  const currentConfig = config.getValue();
+  const currentConfig = config$.getValue();
   const ntfyServer = currentConfig.server || "ntfy.sh";
   const ntfyTopic = currentConfig.topic || "";
 

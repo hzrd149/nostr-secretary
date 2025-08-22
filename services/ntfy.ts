@@ -1,4 +1,4 @@
-import config, { configValue } from "./config";
+import config$, { configValue } from "./config";
 import { firstValueFrom } from "rxjs";
 import { log } from "./logs";
 
@@ -130,7 +130,7 @@ export async function sendNotification(
   options: NtfyNotificationOptions,
 ): Promise<NtfyResponse> {
   // Get config values
-  const currentConfig = config.getValue();
+  const currentConfig = config$.getValue();
   const server = options.server || currentConfig.server || "https://ntfy.sh";
   const topic = options.topic || currentConfig.topic;
 
