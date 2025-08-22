@@ -1,6 +1,6 @@
 import { getTagValue } from "applesauce-core/helpers";
 import { kinds, type NostrEvent } from "nostr-tools";
-import { firstValueFrom, of, timeout } from "rxjs";
+import { firstValueFrom, of, timeout, toArray } from "rxjs";
 import { peopleLists$ } from "../services/nostr";
 
 export interface WhitelistBlacklistProps {

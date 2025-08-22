@@ -24,12 +24,14 @@ import {
   filter,
   map,
   merge,
+  mergeWith,
   NEVER,
   of,
   share,
   shareReplay,
   skip,
   switchMap,
+  toArray,
 } from "rxjs";
 
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
@@ -240,7 +242,10 @@ export const groups$ = combineLatest([user$, mailboxes$]).pipe(
 /** An observable that loads the users people lists */
 export const peopleLists$ = combineLatest([user$, mailboxes$]).pipe(
   switchMap(([user, mailboxes]) =>
-    listsLoader({ pubkey: user, relays: mailboxes?.outboxes }),
+    listsLoader({ pubkey: user, relays: mailboxes?.outboxes }).pipe(
+      toArray(),
+      mergeWith(NEVER),
+    ),
   ),
   shareReplay(1),
 );

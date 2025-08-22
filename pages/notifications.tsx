@@ -230,10 +230,10 @@ async function NotificationsList() {
 
       <div class="notification-item">
         <div class="notification-info">
-          <div class="notification-name">💬 Replies & Mentions</div>
+          <div class="notification-name">💬 Replies</div>
           <div class="notification-description">
-            Get notified when someone replies to your notes or mentions you.
-            Helps you stay engaged in conversations.
+            Get notified when someone replies to your notes. Helps you stay
+            engaged in conversations.
           </div>
         </div>
         <div class="notification-actions">
@@ -242,7 +242,7 @@ async function NotificationsList() {
           >
             {repliesEnabled ? "Enabled" : "Disabled"}
           </span>
-          <a href="/config" class="config-btn">
+          <a href="/replies" class="config-btn">
             Configure
           </a>
         </div>
