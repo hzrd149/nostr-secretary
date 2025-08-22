@@ -5,30 +5,30 @@ import WhitelistBlacklist from "../components/WhitelistBlacklist";
 import config$ from "../services/config";
 import { unique } from "../helpers/array";
 
-export function MessagesConfigView({ saved }: { saved?: boolean }) {
+export function ZapsConfigView({ saved }: { saved?: boolean }) {
   const currentConfig = config$.getValue();
-  const messagesConfig = currentConfig.messages;
+  const zapsConfig = currentConfig.zaps;
 
   return (
-    <Document title="Message Notifications">
+    <Document title="Zap Notifications">
       <Layout
-        title="Message Notifications"
-        subtitle="Configure direct message notification settings"
+        title="Zap Notifications"
+        subtitle="Configure Lightning Network zap notification settings"
       >
         {saved && (
           <div id="successMessage" class="success-message">
-            ✅ Message configuration saved successfully!
+            ✅ Zap configuration saved successfully!
           </div>
         )}
 
-        <form action="/messages" method="POST">
+        <form action="/zaps" method="POST">
           <div class="form-group">
             <div style="display: flex; align-items: flex-start; gap: 10px;">
               <input
                 type="checkbox"
                 id="enabled"
                 name="enabled"
-                checked={messagesConfig.enabled}
+                checked={zapsConfig.enabled}
                 style="margin-top: 4px; width: 20px; height: 20px;"
               />
               <div style="flex: 1;">
@@ -36,53 +36,19 @@ export function MessagesConfigView({ saved }: { saved?: boolean }) {
                   for="enabled"
                   style="font-weight: bold; margin-bottom: 8px; display: block;"
                 >
-                  Enable Direct Message Notifications
+                  Enable Zap Notifications
                 </label>
                 <div class="help-text">
-                  Receive notifications when you get direct messages (DMs) on
-                  Nostr.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <div style="display: flex; align-items: flex-start; gap: 10px;">
-              <input
-                type="checkbox"
-                id="sendContent"
-                name="sendContent"
-                checked={messagesConfig.sendContent}
-                style="margin-top: 4px; width: 20px; height: 20px;"
-              />
-              <div style="flex: 1;">
-                <label
-                  for="sendContent"
-                  style="font-weight: bold; margin-bottom: 8px; display: block;"
-                >
-                  Include Message Content in Notifications
-                </label>
-                <div class="help-text">
-                  When enabled, the actual message content will be included in
-                  notifications.
-                </div>
-                <div
-                  class="warning-text"
-                  style="margin-top: 10px; padding: 12px; background-color: #ffe6e6; border: 1px solid #ff9999; border-radius: 4px; color: #cc0000;"
-                >
-                  ⚠️ <strong>Privacy Warning:</strong> Enabling this feature
-                  will send the <strong>unencrypted, plaintext content</strong>{" "}
-                  of your direct messages through the notification server. Only
-                  enable this if you trust your notification server and
-                  understand the privacy implications.
+                  Receive notifications when someone zaps (tips with Lightning
+                  Network) your notes or profile on Nostr.
                 </div>
               </div>
             </div>
           </div>
 
           <WhitelistBlacklist
-            whitelists={messagesConfig.whitelists}
-            blacklists={messagesConfig.blacklists}
+            whitelists={zapsConfig.whitelists}
+            blacklists={zapsConfig.blacklists}
             pubkey={currentConfig.pubkey}
           />
 
@@ -95,7 +61,7 @@ export function MessagesConfigView({ saved }: { saved?: boolean }) {
               Back to Notifications
             </button>
             <button type="submit" class="btn-primary">
-              Save Message Settings
+              Save Zap Settings
             </button>
           </div>
         </form>
@@ -104,9 +70,9 @@ export function MessagesConfigView({ saved }: { saved?: boolean }) {
   );
 }
 
-const route: RouterTypes.RouteValue<"/messages"> = {
+const route: RouterTypes.RouteValue<"/zaps"> = {
   GET: async () => {
-    return new Response(await MessagesConfigView({}), {
+    return new Response(await ZapsConfigView({}), {
       headers: { "Content-Type": "text/html" },
     });
   },
@@ -114,7 +80,6 @@ const route: RouterTypes.RouteValue<"/messages"> = {
     try {
       const formData = await req.formData();
       const enabled = formData.has("enabled");
-      const sendContent = formData.has("sendContent");
       const whitelistsText = formData.get("whitelists") as string;
       const blacklistsText = formData.get("blacklists") as string;
 
@@ -137,9 +102,8 @@ const route: RouterTypes.RouteValue<"/messages"> = {
       const currentConfig = config$.getValue();
       const newConfig = {
         ...currentConfig,
-        messages: {
+        zaps: {
           enabled,
-          sendContent,
           whitelists,
           blacklists,
         },
@@ -147,8 +111,8 @@ const route: RouterTypes.RouteValue<"/messages"> = {
 
       config$.next(newConfig);
 
-      // Redirect back to messages page with success
-      return new Response(await MessagesConfigView({ saved: true }), {
+      // Redirect back to zaps page with success
+      return new Response(await ZapsConfigView({ saved: true }), {
         headers: { "Content-Type": "text/html" },
       });
     } catch (error) {

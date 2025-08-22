@@ -12,6 +12,7 @@ import {
 import {
   createAddressLoader,
   createEventLoader,
+  createUserListsLoader,
 } from "applesauce-loaders/loaders";
 import { onlyEvents, RelayPool } from "applesauce-relay";
 import { NostrConnectSigner } from "applesauce-signers";
@@ -46,6 +47,11 @@ NostrConnectSigner.publishMethod = pool.publish.bind(pool);
 const lookupRelays = config$.pipe(map((c) => c.lookupRelays));
 export const addressLoader = createAddressLoader(pool, { lookupRelays });
 export const eventLoader = createEventLoader(pool);
+
+export const listsLoader = createUserListsLoader(pool, {
+  eventStore,
+  kinds: [kinds.CommunitiesList, kinds.Followsets],
+});
 
 // Setup loaders on event store
 eventStore.replaceableLoader = addressLoader;
@@ -218,5 +224,23 @@ export const whitelist$ = configValue("whitelists").pipe(
 /** An observable of the global blacklist */
 export const blacklist$ = configValue("blacklists").pipe(
   switchMap(loadLists),
+  shareReplay(1),
+);
+
+export const groups$ = combineLatest([user$, mailboxes$]).pipe(
+  switchMap(([user, mailboxes]) => {
+    if (!user || !mailboxes) return EMPTY;
+    return eventStore.replaceable({
+      kind: 10009,
+      pubkey: user,
+    });
+  }),
+);
+
+/** An observable that loads the users people lists */
+export const peopleLists$ = combineLatest([user$, mailboxes$]).pipe(
+  switchMap(([user, mailboxes]) =>
+    listsLoader({ pubkey: user, relays: mailboxes?.outboxes }),
+  ),
   shareReplay(1),
 );

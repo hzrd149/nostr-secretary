@@ -9,18 +9,53 @@ import {
   getZapSender,
 } from "applesauce-core/helpers";
 import { kinds } from "nostr-tools";
-import { filter, firstValueFrom, map, of } from "rxjs";
+import { filter, firstValueFrom, map, NEVER, of, switchMap } from "rxjs";
 import { buildOpenLink } from "../helpers/config";
-import { configValue, getConfig } from "../services/config";
+import { loadLists } from "../helpers/lists";
+import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
-import { eventStore, tagged$ } from "../services/nostr";
+import { blacklist$, eventStore, tagged$, whitelist$ } from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
 
-export const enabled$ = configValue("pubkey").pipe(map((pubkey) => !!pubkey));
+/** Check if a sender should receive notifications based on whitelist/blacklist */
+async function shouldNotify(pubkey: string): Promise<boolean> {
+  const { zaps } = getConfig();
+
+  // If there are blacklists, check if sender is blacklisted
+  if (zaps.blacklists.length > 0) {
+    const blacklistedPubkeys = await loadLists(zaps.blacklists);
+    if (blacklistedPubkeys.includes(pubkey)) return false;
+  }
+
+  // If there are whitelists, only allow whitelisted senders
+  if (zaps.whitelists.length > 0) {
+    const whitelistedPubkeys = await loadLists(zaps.whitelists);
+    return whitelistedPubkeys.includes(pubkey);
+  }
+
+  // if they are not on the global whitelist
+  const whitelist = await firstValueFrom(whitelist$);
+  if (whitelist.length > 0 && !whitelist.includes(pubkey)) return false;
+
+  // if they are on the global blacklist
+  const blacklist = await firstValueFrom(blacklist$);
+  if (blacklist.length > 0 && blacklist.includes(pubkey)) return false;
+
+  // If no whitelists, allow everyone (except blacklisted)
+  return true;
+}
+
+export const enabled$ = config$.pipe(map((c) => c.zaps.enabled));
 
 log("Listening for zaps");
-tagged$
-  .pipe(filter((event) => event.kind === kinds.Zap))
+enabled$
+  .pipe(
+    switchMap((enabled) =>
+      enabled
+        ? tagged$.pipe(filter((event) => event.kind === kinds.Zap))
+        : NEVER,
+    ),
+  )
   .subscribe(async (zap) => {
     const eventPointer = getZapEventPointer(zap);
     const addressPointer = getZapAddressPointer(zap);
@@ -45,9 +80,15 @@ tagged$
     if (event.pubkey !== pubkey) return;
 
     const payment = getZapPayment(zap);
-    const request = getZapRequest(zap);
-
     const sender = getZapSender(zap);
+
+    // Check if we should notify for this sender
+    if (!(await shouldNotify(sender)))
+      return log(
+        "Skipping zap notification for blacklisted/non-whitelisted sender",
+        { sender },
+      );
+
     const profile = await firstValueFrom(
       eventStore.profile(sender).pipe(defined()),
     );

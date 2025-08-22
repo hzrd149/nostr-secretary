@@ -6,6 +6,7 @@ import mobileRoute from "./pages/mobile";
 import notificationsRoute from "./pages/notifications";
 import statusRoute from "./pages/status";
 import signerRoute from "./pages/signer";
+import zapsRoute from "./pages/zaps";
 
 // Start listening for notifications
 import "./notifications";
@@ -21,6 +22,7 @@ const server = serve({
     "/notifications": notificationsRoute,
     "/status": statusRoute,
     "/signer": signerRoute,
+    "/zaps": zapsRoute,
 
     // Static files
     "/layout.css": () => new Response(Bun.file("./public/layout.css")),

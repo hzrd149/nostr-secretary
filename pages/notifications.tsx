@@ -262,7 +262,7 @@ async function NotificationsList() {
           >
             {zapsEnabled ? "Enabled" : "Disabled"}
           </span>
-          <a href="/config" class="config-btn">
+          <a href="/zaps" class="config-btn">
             Configure
           </a>
         </div>
