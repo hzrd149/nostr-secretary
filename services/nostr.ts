@@ -179,7 +179,7 @@ export const tagged$ = combineLatest([user$, mailboxes$.pipe(defined())]).pipe(
           // Only new events
           since: unixNow() - 1,
         },
-        { reconnect: true },
+        { reconnect: Infinity },
       )
       .pipe(
         onlyEvents(),
@@ -208,7 +208,7 @@ export const giftWraps$ = combineLatest([
         // Use limit 1 because ts on gift wraps is random
         limit: 1,
       },
-      { reconnect: true },
+      { reconnect: Infinity },
     ),
   ),
   onlyEvents(),

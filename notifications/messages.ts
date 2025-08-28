@@ -12,7 +12,6 @@ import {
   combineLatest,
   EMPTY,
   filter,
-  firstValueFrom,
   from,
   map,
   mergeMap,
@@ -23,6 +22,7 @@ import {
 } from "rxjs";
 
 import { loadLists } from "../helpers/lists";
+import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
 import {
@@ -53,11 +53,11 @@ async function shouldNotify(pubkey: string): Promise<boolean> {
   }
 
   // if they are not on the global whitelist
-  const whitelist = await firstValueFrom(whitelist$);
+  const whitelist = await getValue(whitelist$);
   if (whitelist.length > 0 && !whitelist.includes(pubkey)) return false;
 
   // if they are on the global blacklist
-  const blacklist = await firstValueFrom(blacklist$);
+  const blacklist = await getValue(blacklist$);
   if (blacklist.length > 0 && blacklist.includes(pubkey)) return false;
 
   // If no whitelists, allow everyone (except blacklisted)
@@ -80,7 +80,7 @@ export const enabled$ = config$.pipe(
   shareReplay(1),
 );
 
-const enbaledSigner = combineLatest([enabled$, signer$]).pipe(
+const enabledSigner = combineLatest([enabled$, signer$]).pipe(
   filter(([enabled, signer]) => enabled && !!signer),
   map(([_, signer]) => signer),
   defined(),
@@ -93,7 +93,7 @@ const enbaledSigner = combineLatest([enabled$, signer$]).pipe(
 );
 
 // Listen for NIP-04 messages
-enbaledSigner
+enabledSigner
   .pipe(
     // Switch to listening for incoming events
     switchMap((signer) =>
@@ -104,7 +104,7 @@ enbaledSigner
           if (!pubkey) return;
 
           const sender = getLegacyMessageCorraspondant(event, pubkey);
-          const profile = await firstValueFrom(
+          const profile = await getValue(
             eventStore.profile(sender).pipe(defined()),
           );
 
@@ -144,7 +144,7 @@ enbaledSigner
   });
 
 // Listen for NIP-17 messages
-enbaledSigner
+enabledSigner
   .pipe(
     // Switch to listening for gift wraps
     switchMap((signer) =>
@@ -187,9 +187,7 @@ enbaledSigner
         },
       );
 
-    const profile = await firstValueFrom(
-      eventStore.profile(sender).pipe(defined()),
-    );
+    const profile = await getValue(eventStore.profile(sender));
     const content = rumor.content;
     const displayName = getDisplayName(profile);
 
