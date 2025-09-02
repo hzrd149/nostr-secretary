@@ -87,14 +87,14 @@ export function SignerView({
                 <button
                   type="button"
                   class="btn-secondary"
-                  onclick="window.location.href='/'"
+                  data-on-click="window.location.href='/'"
                 >
                   Back to Home
                 </button>
                 <button
                   type="submit"
                   class="btn-danger"
-                  onclick="return confirm('Are you sure you want to disconnect your signer? This will disable direct message decryption and relay authentication.')"
+                  data-on-click="if (confirm('Are you sure you want to disconnect your signer? This will disable direct message decryption and relay authentication.')) { $el.form.submit(); }"
                 >
                   Disconnect Signer
                 </button>
@@ -123,7 +123,7 @@ export function SignerView({
                 <button
                   type="button"
                   class="btn-secondary"
-                  onclick="window.location.href='/'"
+                  data-on-click="window.location.href='/'"
                 >
                   Cancel
                 </button>

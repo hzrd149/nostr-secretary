@@ -46,21 +46,43 @@ export default async function WhitelistBlacklist({
           {whitelists.join("\n")}
         </textarea>
         <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
-          <button
-            type="button"
-            class="btn-secondary"
-            style="font-size: 0.9em; padding: 6px 12px;"
-            onclick="addContactsList()"
-          >
-            Add Contacts List
-          </button>
+          {pubkey && (
+            <button
+              type="button"
+              class="btn-secondary"
+              style="font-size: 0.9em; padding: 6px 12px;"
+              data-on-click={`
+                const textarea = document.getElementById('whitelists');
+                const currentValue = textarea.value.trim();
+                const newLine = '3:${pubkey || ""}:';
+                textarea.value = currentValue ? currentValue + '\\n' + newLine : newLine;
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+              `}
+            >
+              Add Contacts List
+            </button>
+          )}
           {followSets.length > 0 && (
             <>
               <span style="font-size: 0.9em; color: #666;">or</span>
               <select
                 id="followSetSelect"
                 style="font-size: 0.9em; padding: 4px 8px;"
-                onchange="addSelectedFollowSet()"
+                data-on-change={`
+                  if (!$el.value) return;
+                  const textarea = document.getElementById('whitelists');
+                  const currentValue = textarea.value.trim();
+                  const lines = currentValue.split('\\n').map(line => line.trim()).filter(line => line);
+                  if (lines.includes($el.value)) {
+                    $el.value = '';
+                    return;
+                  }
+                  textarea.value = currentValue ? currentValue + '\\n' + $el.value : $el.value;
+                  $el.value = '';
+                  textarea.focus();
+                  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+                `}
               >
                 <option value="">Select Follow Set</option>
                 {followSets.map((followSet: NostrEvent) => {
@@ -94,95 +116,26 @@ export default async function WhitelistBlacklist({
         >
           {blacklists.join("\n")}
         </textarea>
-        <div style="margin-top: 8px;">
-          <button
-            type="button"
-            class="btn-secondary"
-            style="font-size: 0.9em; padding: 6px 12px;"
-            onclick="addMutesList()"
-          >
-            Add Mutes List
-          </button>
-        </div>
+        {pubkey && (
+          <div style="margin-top: 8px;">
+            <button
+              type="button"
+              class="btn-secondary"
+              style="font-size: 0.9em; padding: 6px 12px;"
+              data-on-click={`
+                const textarea = document.getElementById('blacklists');
+                const currentValue = textarea.value.trim();
+                const newLine = '10000:${pubkey}:';
+                textarea.value = currentValue ? currentValue + '\\n' + newLine : newLine;
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+              `}
+            >
+              Add Mutes List
+            </button>
+          </div>
+        )}
       </div>
-
-      <script>
-        {`
-          function addContactsList() {
-            const pubkey = '${pubkey || ""}';
-            if (!pubkey) {
-              alert('Please set your public key in the main configuration first.');
-              return;
-            }
-
-            const textarea = document.getElementById('whitelists');
-            const currentValue = textarea.value.trim();
-            const newLine = '3:' + pubkey + ':';
-
-            if (currentValue) {
-              textarea.value = currentValue + '\\n' + newLine;
-            } else {
-              textarea.value = newLine;
-            }
-
-            // Focus at the end of the new line
-            textarea.focus();
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-          }
-
-          function addMutesList() {
-            const pubkey = '${pubkey || ""}';
-            if (!pubkey) {
-              alert('Please set your public key in the main configuration first.');
-              return;
-            }
-
-            const textarea = document.getElementById('blacklists');
-            const currentValue = textarea.value.trim();
-            const newLine = '10000:' + pubkey + ':';
-
-            if (currentValue) {
-              textarea.value = currentValue + '\\n' + newLine;
-            } else {
-              textarea.value = newLine;
-            }
-
-            // Focus at the end of the new line
-            textarea.focus();
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-          }
-
-          function addSelectedFollowSet() {
-            const select = document.getElementById('followSetSelect');
-            const coordinate = select.value;
-
-            if (!coordinate) {
-              return; // No selection, nothing to do
-            }
-
-            const textarea = document.getElementById('whitelists');
-            const currentValue = textarea.value.trim();
-
-            // Check if this coordinate is already in the list to avoid duplicates
-            const lines = currentValue.split('\\n').map(line => line.trim()).filter(line => line);
-            if (lines.includes(coordinate)) {
-              select.value = ''; // Reset selection
-              return;
-            }
-
-            if (currentValue) {
-              textarea.value = currentValue + '\\n' + coordinate;
-            } else {
-              textarea.value = coordinate;
-            }
-
-            // Reset the select and focus the textarea
-            select.value = '';
-            textarea.focus();
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-          }
-        `}
-      </script>
     </>
   );
 }

@@ -13,6 +13,10 @@ export default function Document({ title, children }: DocumentProps) {
         <link rel="stylesheet" href="/layout.css" />
         <link rel="stylesheet" href="/form.css" />
         <link rel="stylesheet" href="/button.css" />
+        <script
+          type="module"
+          src="https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js"
+        ></script>
       </head>
       <body>{children}</body>
     </html>
