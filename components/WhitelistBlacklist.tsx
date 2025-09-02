@@ -37,8 +37,7 @@ export default async function WhitelistBlacklist({
           Format: <code>kind:pubkey:identifier</code> or <code>naddr1...</code>
         </div>
         <textarea
-          id="whitelists"
-          name="whitelists"
+          data-bind="whitelists"
           placeholder="3:abc123...def456:contacts&#10;naddr1..."
           rows="6"
           safe
@@ -51,14 +50,8 @@ export default async function WhitelistBlacklist({
               type="button"
               class="btn-secondary"
               style="font-size: 0.9em; padding: 6px 12px;"
-              data-on-click={`
-                const textarea = document.getElementById('whitelists');
-                const currentValue = textarea.value.trim();
-                const newLine = '3:${pubkey || ""}:';
-                textarea.value = currentValue ? currentValue + '\\n' + newLine : newLine;
-                textarea.focus();
-                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-              `}
+              data-on-click={`$whitelists = $whitelists.split(\`\n\`).concat('3:${pubkey || ""}:').join(\`\n\`)`}
+              data-show={`!$whitelists.includes('3:${pubkey || ""}:')`}
             >
               Add Contacts List
             </button>
@@ -69,20 +62,7 @@ export default async function WhitelistBlacklist({
               <select
                 id="followSetSelect"
                 style="font-size: 0.9em; padding: 4px 8px;"
-                data-on-change={`
-                  if (!$el.value) return;
-                  const textarea = document.getElementById('whitelists');
-                  const currentValue = textarea.value.trim();
-                  const lines = currentValue.split('\\n').map(line => line.trim()).filter(line => line);
-                  if (lines.includes($el.value)) {
-                    $el.value = '';
-                    return;
-                  }
-                  textarea.value = currentValue ? currentValue + '\\n' + $el.value : $el.value;
-                  $el.value = '';
-                  textarea.focus();
-                  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-                `}
+                data-on-change="$whitelists = $whitelists.split('\\n').concat(el.value).join('\\n')"
               >
                 <option value="">Select Follow Set</option>
                 {followSets.map((followSet: NostrEvent) => {
@@ -90,7 +70,14 @@ export default async function WhitelistBlacklist({
                   const title =
                     getTagValue(followSet, "title") || dTag || "Untitled Set";
                   const coordinate = `${followSet.kind}:${followSet.pubkey}:${dTag}`;
-                  return <option value={coordinate}>{title}</option>;
+                  return (
+                    <option
+                      value={coordinate}
+                      data-show="!$whitelists.includes(el.value)"
+                    >
+                      {title}
+                    </option>
+                  );
                 })}
               </select>
             </>
@@ -108,8 +95,7 @@ export default async function WhitelistBlacklist({
           Format: <code>kind:pubkey:identifier</code> or <code>naddr1...</code>
         </div>
         <textarea
-          id="blacklists"
-          name="blacklists"
+          data-bind="blacklists"
           placeholder="10000:abc123...def456:mutes&#10;naddr1..."
           rows="6"
           safe
@@ -122,14 +108,7 @@ export default async function WhitelistBlacklist({
               type="button"
               class="btn-secondary"
               style="font-size: 0.9em; padding: 6px 12px;"
-              data-on-click={`
-                const textarea = document.getElementById('blacklists');
-                const currentValue = textarea.value.trim();
-                const newLine = '10000:${pubkey}:';
-                textarea.value = currentValue ? currentValue + '\\n' + newLine : newLine;
-                textarea.focus();
-                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-              `}
+              data-on-click={`$blacklists = $blacklists.split('\\n').concat('10000:${pubkey}:').join('\\n')`}
             >
               Add Mutes List
             </button>

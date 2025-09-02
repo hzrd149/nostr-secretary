@@ -1,3 +1,4 @@
+import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import type { RouterTypes } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
@@ -6,13 +7,7 @@ import { NostrConnectSigner } from "applesauce-signers";
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { signer$ } from "../services/nostr";
 
-export function SignerView({
-  saved,
-  error,
-}: {
-  saved?: boolean;
-  error?: string;
-}) {
+export function SignerView() {
   const currentConfig = config$.getValue();
   const hasSigner = !!currentConfig.signer;
 
@@ -22,21 +17,17 @@ export function SignerView({
         title="Nostr Connect Signer"
         subtitle="Configure your Nostr Connect signer for advanced features"
       >
-        {saved && (
-          <div id="successMessage" class="success-message">
-            ✅ Signer configuration updated successfully!
-          </div>
-        )}
+        <div class="success-message" data-show="$saved">
+          ✅ Signer configuration updated successfully!
+        </div>
 
-        {error && (
-          <div
-            id="errorMessage"
-            class="error-message"
-            style="margin-bottom: 20px; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;"
-          >
-            ❌ <strong>Error:</strong> {error}
-          </div>
-        )}
+        <div
+          class="error-message"
+          data-show="$error"
+          style="margin-bottom: 20px; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;"
+        >
+          ❌ <strong>Error:</strong> <span data-text="$error"></span>
+        </div>
 
         <div
           class="info-section"
@@ -80,58 +71,59 @@ export function SignerView({
               )}
             </div>
 
-            <form method="POST" action="/signer">
-              <input type="hidden" name="_method" value="PATCH" />
-              <input type="hidden" name="action" value="disconnect" />
-              <div class="button-group">
-                <button
-                  type="button"
-                  class="btn-secondary"
-                  data-on-click="window.location.href='/'"
-                >
-                  Back to Home
-                </button>
-                <button
-                  type="submit"
-                  class="btn-danger"
-                  data-on-click="if (confirm('Are you sure you want to disconnect your signer? This will disable direct message decryption and relay authentication.')) { $el.form.submit(); }"
-                >
-                  Disconnect Signer
-                </button>
-              </div>
-            </form>
+            <div class="button-group">
+              <button
+                type="button"
+                class="btn-secondary"
+                data-on-click="window.location.href='/'"
+              >
+                Back to Home
+              </button>
+              <button
+                type="button"
+                class="btn-danger"
+                data-on-click="if (confirm('Are you sure you want to disconnect your signer? This will disable direct message decryption and relay authentication.')) { @delete(location.href) }"
+                data-indicator-disconnecting
+                data-attr-disabled="$disconnecting"
+              >
+                Disconnect Signer
+              </button>
+            </div>
           </div>
         ) : (
           <div class="signer-setup">
-            <form method="POST" action="/signer">
-              <div class="form-group">
-                <label for="bunkerUri">Bunker URI</label>
-                <div class="help-text">
-                  Paste your bunker:// URI from your Nostr Connect compatible
-                  app (like Alby, nsec.app, etc.)
-                </div>
-                <textarea
-                  id="bunkerUri"
-                  name="bunkerUri"
-                  placeholder="bunker://pubkey@relay.example.com?secret=..."
-                  required
-                  style="font-family: monospace; min-height: 120px; resize: vertical;"
-                ></textarea>
+            <div class="form-group">
+              <label for="bunkerUri">Bunker URI</label>
+              <div class="help-text">
+                Paste your bunker:// URI from your Nostr Connect compatible app
+                (like Alby, nsec.app, etc.)
               </div>
+              <textarea
+                id="bunkerUri"
+                data-bind="bunkerUri"
+                placeholder="bunker://pubkey@relay.example.com?secret=..."
+                style="font-family: monospace; min-height: 120px; resize: vertical;"
+              ></textarea>
+            </div>
 
-              <div class="button-group">
-                <button
-                  type="button"
-                  class="btn-secondary"
-                  data-on-click="window.location.href='/'"
-                >
-                  Cancel
-                </button>
-                <button type="submit" class="btn-primary">
-                  Connect Signer
-                </button>
-              </div>
-            </form>
+            <div class="button-group">
+              <button
+                type="button"
+                class="btn-secondary"
+                data-on-click="window.location.href='/'"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                data-on-click="@post(location.href)"
+                data-indicator-connecting
+                data-attr-disabled="$connecting"
+              >
+                Connect Signer
+              </button>
+            </div>
           </div>
         )}
       </Layout>
@@ -141,34 +133,24 @@ export function SignerView({
 
 const route: RouterTypes.RouteValue<"/signer"> = {
   GET: async () => {
-    return new Response(await SignerView({}), {
+    return new Response(await SignerView(), {
       headers: { "Content-Type": "text/html" },
     });
   },
   POST: async (req) => {
-    try {
-      const formData = await req.formData();
-      const method = formData.get("_method") as string;
+    const reader = await ServerSentEventGenerator.readSignals(req);
+    if (!reader.success) throw new Error(reader.error);
 
-      if (method === "PATCH") {
-        // Disconnect signer
-        const currentConfig = config$.getValue();
-        config$.next({ ...currentConfig, signer: undefined });
+    return ServerSentEventGenerator.stream(async (stream) => {
+      const { signals } = reader;
+      const bunkerUri = signals.bunkerUri as string;
 
-        return new Response(await SignerView({ saved: true }), {
-          headers: { "Content-Type": "text/html" },
-        });
-      } else {
-        // Connect new signer
-        const bunkerUri = formData.get("bunkerUri") as string;
-
+      try {
         if (!bunkerUri || !bunkerUri.trim()) {
-          return new Response(
-            await SignerView({ error: "Bunker URI is required" }),
-            {
-              headers: { "Content-Type": "text/html" },
-            },
+          stream.patchSignals(
+            JSON.stringify({ error: "Bunker URI is required" }),
           );
+          return;
         }
 
         try {
@@ -189,32 +171,44 @@ const route: RouterTypes.RouteValue<"/signer"> = {
           // Update the config
           updateConfig({ signer: account.toJSON() });
 
-          return new Response(await SignerView({ saved: true }), {
-            headers: { "Content-Type": "text/html" },
-          });
+          stream.patchSignals(JSON.stringify({ saved: true }));
         } catch (signerError) {
           console.error("Signer connection error:", signerError);
-          return new Response(
-            await SignerView({
+          stream.patchSignals(
+            JSON.stringify({
               error: `Failed to connect to signer: ${signerError instanceof Error ? signerError.message : "Unknown error"}`,
             }),
-            {
-              headers: { "Content-Type": "text/html" },
-            },
           );
         }
+      } catch (error) {
+        console.error("Form processing error:", error);
+        stream.patchSignals(
+          JSON.stringify({
+            error: "Invalid form data or processing error",
+          }),
+        );
       }
-    } catch (error) {
-      console.error("Form processing error:", error);
-      return new Response(
-        await SignerView({
-          error: "Invalid form data or processing error",
-        }),
-        {
-          headers: { "Content-Type": "text/html" },
-        },
-      );
-    }
+    });
+  },
+  DELETE: async () => {
+    return ServerSentEventGenerator.stream(async (stream) => {
+      try {
+        // Disconnect signer
+        const currentConfig = config$.getValue();
+        config$.next({ ...currentConfig, signer: undefined });
+
+        stream.patchSignals(JSON.stringify({ saved: true }));
+      } catch (error) {
+        stream.patchSignals(
+          JSON.stringify({
+            error:
+              error instanceof Error
+                ? error.message
+                : "An unknown error occurred",
+          }),
+        );
+      }
+    });
   },
 };
 

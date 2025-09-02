@@ -1,0 +1,67 @@
+---
+description: How to use Datastar
+globs: *.tsx,*.jsx,*.html
+alwaysApply: true
+---
+
+- Pages should be re-loadable. Don't have pure client-side state if we can avoid it. For example, when rendering an epub we should try to keep the id and page number etc in the url so that it can be reloaded at any time ... obviously we won't be perfect here, but let's not be obnoxious ...
+
+## Core Concepts
+
+- HTML-first reactive framework using `data-*` attributes
+- Source: ~/code/datastar/library/src/
+- Self-executes on load, no global object
+- Three plugin types: Attribute (`data-*`), Action (`@` prefix), Watcher (SSE)
+
+## Expression Syntax
+
+- `$` = signals (reactive state): `$query`, `$count`
+- `@` = action plugins: `@get('/api')`, `@post('/save')`
+- Modifiers: `data-on-input__debounce.500ms`
+
+## The 5 SSE Operations (Server → Client)
+
+1. **`mergeFragments(html, {selector, mergeMode})`** - Update DOM
+   - mergeModes: morph, inner, outer, prepend, append, before, after
+2. **`removeFragments(selector)`** - Remove DOM elements
+3. **`mergeSignals(data)`** - Update reactive state
+4. **`removeSignals(paths)`** - Remove state by path
+5. **`executeScript(code)`** - Run JS on client
+
+## Version Compatibility ⚠️
+
+**Client and SDK versions MUST match or SSE breaks!**
+
+- We use: `@starfederation/datastar@1.0.0-beta.11` + matching SDK
+- beta.11 uses `mergeFragments()` (NOT `patchElements()` - that's old)
+- Check package.json for exact versions
+
+## Common Issues
+
+- **"GenerateExpression" errors** → Action not registered
+- **SSE not updating DOM** → Version mismatch between client/SDK
+- **Search not working** → Wrong method name (`patchElements` vs `mergeFragments`)
+- **Navigation via SSE unreliable** → Use client-side redirect after fetch, not `executeScript`
+
+## SSE Navigation Gotcha
+
+**DON'T use SSE executeScript for navigation** - it's unreliable across environments:
+
+```javascript
+// ❌ BAD - Fails in CI, headless browsers, strict CSP
+stream.executeScript(`window.location.href = '/';`);
+
+// ✅ GOOD - Client controls navigation after action succeeds
+fetch("/api/delete", { method: "DELETE" }).then(
+  () => (window.location.href = "/"),
+);
+```
+
+Why SSE navigation fails:
+
+- SSE is for data streaming, not command execution
+- Browser security contexts block or delay script execution
+- CI/headless environments have stricter policies
+- Timing issues with stream buffering and async processing
+
+**Rule: Use SSE for DOM updates, use client-side JS for navigation**

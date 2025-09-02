@@ -124,15 +124,13 @@ export function ConfigView() {
           <div style="display: flex; gap: 10px; align-items: flex-start;">
             <input
               type="text"
-              id="appLink"
               data-bind="appLink"
               value={currentConfig.appLink || "nostr:{link}"}
               placeholder="nostr:{link}"
               style="flex: 1;"
             />
             <select
-              id="appLinkPresets"
-              data-on-change="document.getElementById('appLink').value = $el.value"
+              data-on-change="$appLink = el.value"
               style="min-width: 150px; flex-shrink: 0;"
             >
               <option value="">Select preset...</option>
@@ -182,7 +180,7 @@ const route: RouterTypes.RouteValue<"/config"> = {
       const ntfyServer = signals.ntfyServer as string;
       const ntfyTopic = signals.ntfyTopic as string;
       const email = signals.email as string;
-      const appLink = signals.applink as string;
+      const appLink = signals.appLink as string;
 
       try {
         // Validate and normalize pubkey

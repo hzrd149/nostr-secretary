@@ -1,0 +1,51 @@
+---
+description: Testing Datastar Apps
+globs:
+alwaysApply: true
+---
+
+## Test Philosophy
+
+- **Test the Result, Not the Mechanism** - Test what users see, not SSE internals
+- **UI Tests for Reactivity** - Playwright tests are best for DOM reactivity
+- **Test User Workflows** - Full interactions, not individual operations
+
+## Test Patterns for Datastar
+
+```typescript
+// Auto-save testing
+await page.fill("#editor", "text");
+await page.waitForSelector(':text("Saving...")');
+await page.waitForSelector(':text("Saved")');
+
+// SSE-triggered updates
+await page.click("[data-on-click=\"@get('/api/data')\"]");
+await page.waitForSelector('#result:has-text("Updated")');
+
+// Navigation after actions
+await page.click("#delete");
+await page.waitForURL("/"); // Test the result, not the SSE executeScript
+```
+
+## What to Test
+
+✅ DO test:
+
+- User sees correct content after action
+- Navigation works after delete/save
+- Auto-save actually persists data
+- Form submissions update the UI
+
+❌ DON'T test:
+
+- SSE event format or structure
+- Datastar signal internals
+- The exact mechanism of updates
+- Implementation details
+
+## Handling Async Reactivity
+
+- Always wait for DOM changes with `waitForSelector`
+- Use `waitForFunction` for complex state checks
+- Avoid arbitrary `waitForTimeout` - wait for specific conditions
+- Test that changes persist across page reloads
