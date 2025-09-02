@@ -21,26 +21,17 @@ alwaysApply: true
 
 ## The 5 SSE Operations (Server → Client)
 
-1. **`mergeFragments(html, {selector, mergeMode})`** - Update DOM
-   - mergeModes: morph, inner, outer, prepend, append, before, after
+1. **`patchElements(html, {selector, patchMode})`** - Update DOM
+   - patchModes: morph, inner, outer, prepend, append, before, after
 2. **`removeFragments(selector)`** - Remove DOM elements
-3. **`mergeSignals(data)`** - Update reactive state
+3. **`patchSignals(data)`** - Update reactive state
 4. **`removeSignals(paths)`** - Remove state by path
 5. **`executeScript(code)`** - Run JS on client
-
-## Version Compatibility ⚠️
-
-**Client and SDK versions MUST match or SSE breaks!**
-
-- We use: `@starfederation/datastar@1.0.0-beta.11` + matching SDK
-- beta.11 uses `mergeFragments()` (NOT `patchElements()` - that's old)
-- Check package.json for exact versions
 
 ## Common Issues
 
 - **"GenerateExpression" errors** → Action not registered
 - **SSE not updating DOM** → Version mismatch between client/SDK
-- **Search not working** → Wrong method name (`patchElements` vs `mergeFragments`)
 - **Navigation via SSE unreliable** → Use client-side redirect after fetch, not `executeScript`
 
 ## SSE Navigation Gotcha

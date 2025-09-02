@@ -12,7 +12,9 @@ export default function Layout({ title, subtitle, children }: LayoutProps) {
         <p safe>{subtitle}</p>
       </div>
 
-      <div class="content">{children}</div>
+      <div id="page" class="content">
+        {children}
+      </div>
     </div>
   );
 }
