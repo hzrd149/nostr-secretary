@@ -2,7 +2,7 @@ import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { normalizeToPubkey } from "applesauce-core/helpers";
 import { NostrConnectSigner } from "applesauce-signers";
-import type { RouterTypes } from "bun";
+import type { BunRequest } from "bun";
 import { BehaviorSubject, firstValueFrom } from "rxjs";
 import Document from "../components/Document";
 import { DEFAULT_SIGNER_RELAY } from "../const";
@@ -381,14 +381,14 @@ export function HomeView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/"> = {
+const route = {
   GET: async () => {
     return new Response(await HomeView(), {
       headers: { "Content-Type": "text/html" },
     });
   },
 
-  PATCH: async (req) => {
+  PATCH: async (req: BunRequest) => {
     const reader = await ServerSentEventGenerator.readSignals(req);
     if (!reader.success) throw new Error(reader.error);
 

@@ -1,5 +1,5 @@
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import type { RouterTypes } from "bun";
+import type { BunRequest } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
 import WhitelistBlacklist from "../components/WhitelistBlacklist";
@@ -79,13 +79,13 @@ export function RepliesConfigView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/replies"> = {
+const route = {
   GET: async () => {
     return new Response(await RepliesConfigView(), {
       headers: { "Content-Type": "text/html" },
     });
   },
-  PATCH: async (req) => {
+  PATCH: async (req: BunRequest) => {
     const reader = await ServerSentEventGenerator.readSignals(req);
     if (!reader.success) throw new Error(reader.error);
 

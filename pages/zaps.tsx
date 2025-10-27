@@ -1,10 +1,10 @@
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import type { RouterTypes } from "bun";
+import type { BunRequest } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
 import WhitelistBlacklist from "../components/WhitelistBlacklist";
-import config$ from "../services/config";
 import { unique } from "../helpers/array";
+import config$ from "../services/config";
 
 export function ZapsConfigView() {
   const currentConfig = config$.getValue();
@@ -80,13 +80,13 @@ export function ZapsConfigView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/zaps"> = {
+const route = {
   GET: async () => {
     return new Response(await ZapsConfigView(), {
       headers: { "Content-Type": "text/html" },
     });
   },
-  PATCH: async (req) => {
+  PATCH: async (req: BunRequest) => {
     const reader = await ServerSentEventGenerator.readSignals(req);
     if (!reader.success) throw new Error(reader.error);
 

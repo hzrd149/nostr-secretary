@@ -81,6 +81,7 @@ enabled$
 
     const payment = getZapPayment(zap);
     const sender = getZapSender(zap);
+    if (!sender) return;
 
     // Check if we should notify for this sender
     if (!(await shouldNotify(sender)))

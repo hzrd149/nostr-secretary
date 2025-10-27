@@ -1,6 +1,6 @@
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { normalizeToPubkey } from "applesauce-core/helpers";
-import type { RouterTypes } from "bun";
+import type { BunRequest } from "bun";
 
 import Document from "../components/Document";
 import Layout from "../components/Layout";
@@ -163,13 +163,13 @@ export function ConfigView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/config"> = {
+const route = {
   GET: async () => {
     return new Response(await ConfigView(), {
       headers: { "Content-Type": "text/html" },
     });
   },
-  PATCH: async (req) => {
+  PATCH: async (req: BunRequest) => {
     const reader = await ServerSentEventGenerator.readSignals(req);
     if (!reader.success) throw new Error(reader.error);
 

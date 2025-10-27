@@ -2,6 +2,7 @@ import { defined } from "applesauce-core";
 import {
   getDisplayName,
   getLegacyMessageCorraspondant,
+  getLegacyMessageReceiver,
   getProfilePicture,
   unlockGiftWrap,
   unlockLegacyMessage,
@@ -103,7 +104,9 @@ enabledSigner
           const { pubkey } = getConfig();
           if (!pubkey) return;
 
-          const sender = getLegacyMessageCorraspondant(event, pubkey);
+          const sender = getLegacyMessageReceiver(event, pubkey);
+          if (!sender) return;
+
           const profile = await getValue(
             eventStore.profile(sender).pipe(defined()),
           );

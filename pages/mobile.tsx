@@ -1,4 +1,3 @@
-import type { RouterTypes } from "bun";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
 import config$ from "../services/config";
@@ -201,7 +200,7 @@ export function MobileView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/mobile"> = {
+const route = {
   GET: async () => {
     return new Response(await MobileView(), {
       headers: { "Content-Type": "text/html" },

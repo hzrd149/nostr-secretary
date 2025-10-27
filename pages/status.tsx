@@ -1,4 +1,3 @@
-import type { RouterTypes } from "bun";
 import { firstValueFrom } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
@@ -492,7 +491,7 @@ export async function StatusView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/status"> = {
+const route = {
   GET: async () => {
     return new Response(await StatusView(), {
       headers: { "Content-Type": "text/html" },

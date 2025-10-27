@@ -1,7 +1,7 @@
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { NostrConnectSigner } from "applesauce-signers";
-import type { RouterTypes } from "bun";
+import type { BunRequest } from "bun";
 import { BehaviorSubject } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
@@ -245,7 +245,7 @@ export function SignerView() {
   );
 }
 
-const route: RouterTypes.RouteValue<"/signer"> = {
+const route = {
   GET: async () => {
     return new Response(await (<SignerView />), {
       headers: { "Content-Type": "text/html" },
@@ -294,7 +294,7 @@ const route: RouterTypes.RouteValue<"/signer"> = {
       }
     });
   },
-  PATCH: async (req) => {
+  PATCH: async (req: BunRequest) => {
     // Manual bunker URI connection flow
     const reader = await ServerSentEventGenerator.readSignals(req);
     if (!reader.success) throw new Error(reader.error);
