@@ -1,3 +1,5 @@
+import { NostrConnectAccount } from "applesauce-accounts/accounts";
+import { getRelaysFromList } from "applesauce-common/helpers";
 import {
   defined,
   EventStore,
@@ -5,7 +7,6 @@ import {
   simpleTimeout,
 } from "applesauce-core";
 import { mergeRelaySets, unixNow } from "applesauce-core/helpers";
-import { getRelaysFromList } from "applesauce-common/helpers";
 import {
   createEventLoaderForStore,
   createUserListsLoader,
@@ -20,7 +21,6 @@ import {
   filter,
   map,
   merge,
-  mergeWith,
   NEVER,
   of,
   ReplaySubject,
@@ -30,14 +30,15 @@ import {
   switchMap,
   toArray,
 } from "rxjs";
-
-import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { loadLists } from "../helpers/lists";
 import config$, { configValue } from "./config";
 import { log } from "./logs";
 
 export const eventStore = new EventStore();
-export const pool = new RelayPool();
+export const pool = new RelayPool({
+  enablePing: true,
+  onUnresponsive: () => "reconnect",
+});
 
 // Setup bunker signers
 NostrConnectSigner.subscriptionMethod = pool.subscription.bind(pool);
