@@ -1,4 +1,3 @@
-import { getNip10References } from "applesauce-core/helpers/threading";
 import { filter, firstValueFrom, map, NEVER, switchMap } from "rxjs";
 
 import { defined } from "applesauce-core";
@@ -7,6 +6,7 @@ import {
   getDisplayName,
   getProfilePicture,
 } from "applesauce-core/helpers";
+import { getNip10References } from "applesauce-common/helpers";
 import { buildOpenLink } from "../helpers/link";
 import { loadLists } from "../helpers/lists";
 import config$, { getConfig } from "../services/config";

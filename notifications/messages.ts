@@ -1,12 +1,11 @@
 import { defined } from "applesauce-core";
+import { getDisplayName, getProfilePicture } from "applesauce-core/helpers";
 import {
-  getDisplayName,
   getLegacyMessageCorraspondant,
   getLegacyMessageReceiver,
-  getProfilePicture,
   unlockGiftWrap,
   unlockLegacyMessage,
-} from "applesauce-core/helpers";
+} from "applesauce-common/helpers";
 import { kinds } from "nostr-tools";
 import {
   catchError,

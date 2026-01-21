@@ -1,6 +1,9 @@
 import { firstValueFrom, of, timeout } from "rxjs";
 import { pool } from "../services/nostr";
-import { encodeGroupPointer, type GroupPointer } from "applesauce-core/helpers";
+import {
+  encodeGroupPointer,
+  type GroupPointer,
+} from "applesauce-common/helpers";
 import type { NostrEvent } from "nostr-tools";
 
 const cache = new Map<string, NostrEvent>();

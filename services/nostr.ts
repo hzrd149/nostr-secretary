@@ -4,14 +4,10 @@ import {
   mapEventsToStore,
   simpleTimeout,
 } from "applesauce-core";
+import { mergeRelaySets, unixNow } from "applesauce-core/helpers";
+import { getRelaysFromList } from "applesauce-common/helpers";
 import {
-  getRelaysFromList,
-  mergeRelaySets,
-  unixNow,
-} from "applesauce-core/helpers";
-import {
-  createAddressLoader,
-  createEventLoader,
+  createEventLoaderForStore,
   createUserListsLoader,
 } from "applesauce-loaders/loaders";
 import { onlyEvents, RelayPool } from "applesauce-relay";
@@ -48,17 +44,16 @@ NostrConnectSigner.subscriptionMethod = pool.subscription.bind(pool);
 NostrConnectSigner.publishMethod = pool.publish.bind(pool);
 
 const lookupRelays = config$.pipe(map((c) => c.lookupRelays));
-export const addressLoader = createAddressLoader(pool, { lookupRelays });
-export const eventLoader = createEventLoader(pool);
+export const eventLoader = createEventLoaderForStore(eventStore, pool, {
+  lookupRelays,
+});
 
 export const listsLoader = createUserListsLoader(pool, {
   eventStore,
   kinds: [kinds.CommunitiesList, kinds.Followsets],
 });
 
-// Setup loaders on event store
-eventStore.replaceableLoader = addressLoader;
-eventStore.addressableLoader = addressLoader;
+// Setup loader on event store
 eventStore.eventLoader = eventLoader;
 
 /** The current users hex pubkey */

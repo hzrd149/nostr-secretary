@@ -1,9 +1,11 @@
 import {
-  encodeGroupPointer,
   getAddressPointerForEvent,
   getEventPointerForEvent,
-  type GroupPointer,
 } from "applesauce-core/helpers";
+import {
+  encodeGroupPointer,
+  type GroupPointer,
+} from "applesauce-common/helpers";
 import { nip19, type NostrEvent } from "nostr-tools";
 import { isAddressableKind } from "nostr-tools/kinds";
 import { naddrEncode, neventEncode } from "nostr-tools/nip19";
@@ -11,15 +13,15 @@ import config$, { getConfig } from "../services/config";
 import { CACHI_GROUP_LINK } from "../const";
 
 function addCommonTags(template: string, event: NostrEvent): string {
+  const eventPointer = getEventPointerForEvent(event);
+  const addressPointer = isAddressableKind(event.kind)
+    ? getAddressPointerForEvent(event)
+    : null;
+
   return template
-    .replace("{nevent}", neventEncode(getEventPointerForEvent(event)))
+    .replace("{nevent}", eventPointer ? neventEncode(eventPointer) : "")
     .replace("{pubkey}", event.pubkey)
-    .replace(
-      "{naddr}",
-      isAddressableKind(event.kind)
-        ? naddrEncode(getAddressPointerForEvent(event))
-        : "",
-    )
+    .replace("{naddr}", addressPointer ? naddrEncode(addressPointer) : "")
     .replace("{npub}", nip19.npubEncode(event.pubkey));
 }
 
@@ -27,9 +29,14 @@ export function buildOpenLink(event: NostrEvent): string {
   const { appLink } = config$.getValue();
   const template = appLink || "nostr:{link}";
 
-  const link = isAddressableKind(event.kind)
-    ? nip19.naddrEncode(getAddressPointerForEvent(event))
-    : nip19.neventEncode(getEventPointerForEvent(event));
+  let link = "";
+  if (isAddressableKind(event.kind)) {
+    const addressPointer = getAddressPointerForEvent(event);
+    link = addressPointer ? nip19.naddrEncode(addressPointer) : "";
+  } else {
+    const eventPointer = getEventPointerForEvent(event);
+    link = eventPointer ? nip19.neventEncode(eventPointer) : "";
+  }
 
   return addCommonTags(template.replace("{link}", link), event);
 }

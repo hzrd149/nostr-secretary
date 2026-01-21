@@ -1,10 +1,10 @@
 import { defined } from "applesauce-core";
 import {
   addRelayHintsToPointer,
-  getProfilePointersFromList,
   isAddressPointer,
-  parseCoordinate,
+  parseReplaceableAddress,
 } from "applesauce-core/helpers";
+import { getProfilePointersFromList } from "applesauce-common/helpers";
 import { decode, type AddressPointer } from "nostr-tools/nip19";
 import { firstValueFrom, of, timeout } from "rxjs";
 import { eventStore, mailboxes$ } from "../services/nostr";
@@ -18,7 +18,7 @@ export async function loadLists(lists: string[]): Promise<string[]> {
   const pointers = lists
     .map((addr) => {
       if (addr.startsWith("naddr1")) return decode(addr).data as AddressPointer;
-      else if (addr.includes(":")) return parseCoordinate(addr);
+      else if (addr.includes(":")) return parseReplaceableAddress(addr);
       else return null;
     })
     .filter((pointer) => pointer !== null);

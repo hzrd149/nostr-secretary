@@ -1,13 +1,12 @@
 import { defined } from "applesauce-core";
+import { getDisplayName, getProfilePicture } from "applesauce-core/helpers";
 import {
-  getDisplayName,
-  getProfilePicture,
   getZapAddressPointer,
   getZapEventPointer,
   getZapPayment,
   getZapRequest,
   getZapSender,
-} from "applesauce-core/helpers";
+} from "applesauce-common/helpers";
 import { kinds } from "nostr-tools";
 import { filter, firstValueFrom, map, NEVER, of, switchMap } from "rxjs";
 import { buildOpenLink } from "../helpers/link";

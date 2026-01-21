@@ -1,15 +1,15 @@
 import { defined } from "applesauce-core";
-import { getTagValue } from "applesauce-core/helpers";
+import {
+  getDisplayName,
+  getProfilePicture,
+  getTagValue,
+} from "applesauce-core/helpers";
 import {
   encodeGroupPointer,
   getGroupPointerFromGroupTag,
   GROUP_MESSAGE_KIND,
   type GroupPointer,
-} from "applesauce-core/helpers/groups";
-import {
-  getDisplayName,
-  getProfilePicture,
-} from "applesauce-core/helpers/profile";
+} from "applesauce-common/helpers";
 import { onlyEvents } from "applesauce-relay";
 import {
   catchError,
