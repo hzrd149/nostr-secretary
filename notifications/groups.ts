@@ -73,7 +73,7 @@ function subscribeToGroup(group: GroupPointer) {
     .relay(group.relay)
     .subscription(
       { kinds: [GROUP_MESSAGE_KIND], limit: 1, "#d": [group.id] },
-      { reconnect: Infinity },
+      { reconnect: Infinity, resubscribe: true },
     )
     .pipe(onlyEvents());
 

@@ -1,6 +1,6 @@
 {
   "name": "nostr-secretary",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Stupid simple nostr notifications",
   "module": "index.ts",
   "type": "module",
@@ -12,22 +12,21 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@types/bun": "^1.3.6",
-    "prettier": "^3.8.0",
+    "@types/bun": "^1.3.14",
+    "prettier": "^3.8.3",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@kitajs/html": "^4.2.11",
-    "@starfederation/datastar-sdk": "^1.0.0-beta.11",
-    "applesauce-accounts": "^5.0.0",
-    "applesauce-common": "^0.0.0-next-20260121155550",
-    "applesauce-content": "^5.0.0",
-    "applesauce-core": "^0.0.0-next-20260121155550",
-    "applesauce-loaders": "^0.0.0-next-20260121155550",
-    "applesauce-relay": "^0.0.0-next-20260121155550",
-    "applesauce-signers": "^5.0.0",
-    "nanoid": "^5.1.6",
-    "nostr-tools": "^2.19.4",
+    "@kitajs/html": "^4.2.13",
+    "@starfederation/datastar-sdk": "^1.0.0",
+    "applesauce-accounts": "^6.0.0",
+    "applesauce-common": "^6.1.0",
+    "applesauce-core": "^6.1.0",
+    "applesauce-loaders": "^6.1.0",
+    "applesauce-relay": "^6.0.3",
+    "applesauce-signers": "^6.0.1",
+    "nanoid": "^5.1.11",
+    "nostr-tools": "^2.23.5",
     "rxjs": "^7.8.2"
   }
 }

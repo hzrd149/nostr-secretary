@@ -175,7 +175,7 @@ export const tagged$ = combineLatest([user$, mailboxes$.pipe(defined())]).pipe(
           // Only new events
           since: unixNow() - 1,
         },
-        { reconnect: Infinity },
+        { reconnect: Infinity, resubscribe: true },
       )
       .pipe(
         onlyEvents(),
