@@ -14,6 +14,7 @@ import { log } from "../services/logs";
 import {
   blacklist$,
   eventStore,
+  isMuted,
   mailboxes$,
   tagged$,
   whitelist$,
@@ -23,6 +24,9 @@ import { sendNotification } from "../services/ntfy";
 /** Check if a sender should receive notifications based on whitelist/blacklist */
 async function shouldNotify(pubkey: string): Promise<boolean> {
   const { replies } = getConfig();
+
+  // Never notify for pubkeys the user has muted (NIP-51 kind 10000)
+  if (await isMuted(pubkey)) return false;
 
   // If there are blacklists, check if sender is blacklisted
   if (replies.blacklists.length > 0) {

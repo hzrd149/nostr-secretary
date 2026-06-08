@@ -1,12 +1,23 @@
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
-import { getRelaysFromList } from "applesauce-common/helpers";
+import {
+  getHiddenMutedThings,
+  getMutedThings,
+  getRelaysFromList,
+  isHiddenMutesUnlocked,
+  mergeMutes,
+  unlockHiddenMutes,
+} from "applesauce-common/helpers";
 import {
   defined,
   EventStore,
   mapEventsToStore,
   simpleTimeout,
 } from "applesauce-core";
-import { mergeRelaySets, unixNow } from "applesauce-core/helpers";
+import {
+  hasHiddenTags,
+  mergeRelaySets,
+  unixNow,
+} from "applesauce-core/helpers";
 import {
   createEventLoaderForStore,
   createUserListsLoader,
@@ -19,6 +30,7 @@ import {
   combineLatest,
   EMPTY,
   filter,
+  firstValueFrom,
   map,
   merge,
   NEVER,
@@ -28,11 +40,21 @@ import {
   shareReplay,
   skip,
   switchMap,
+  timeout,
+  timer,
   toArray,
+  type MonoTypeOperatorFunction,
 } from "rxjs";
 import { loadLists } from "../helpers/lists";
 import config$, { configValue } from "./config";
 import { log } from "./logs";
+
+function shareAndHold<T>(timeout = 60_000): MonoTypeOperatorFunction<T> {
+  return share({
+    resetOnRefCountZero: () => timer(timeout),
+    connector: () => new ReplaySubject(1),
+  });
+}
 
 export const eventStore = new EventStore();
 export const pool = new RelayPool({
@@ -88,12 +110,12 @@ export const messageInboxes$ = configValue("pubkey").pipe(
         }),
       ),
       map((event) => (event ? getRelaysFromList(event) : undefined)),
-      // Only request once
-      shareReplay(1),
       // Timeout after 10 seconds
       simpleTimeout(10_000),
     );
   }),
+  // Keep observable warm for 60s
+  shareAndHold(60_000),
 );
 
 /** An observable of the users signer */
@@ -207,7 +229,6 @@ export const giftWraps$ = combineLatest([
       { reconnect: Infinity },
     ),
   ),
-  onlyEvents(),
   // Skip the first event since we only want new ones
   skip(1),
   mapEventsToStore(eventStore),
@@ -226,6 +247,52 @@ export const blacklist$ = configValue("blacklists").pipe(
   shareReplay(1),
 );
 
+/**
+ * An observable of the set of pubkeys the user has muted (NIP-51 kind 10000).
+ * Includes private (encrypted) mutes when a signer is available.
+ */
+export const mutedPubkeys$ = combineLatest([
+  user$.pipe(
+    switchMap((user) =>
+      eventStore.replaceable({ kind: kinds.Mutelist, pubkey: user }),
+    ),
+  ),
+  signer$,
+]).pipe(
+  switchMap(async ([event, signer]) => {
+    if (!event) return new Set<string>();
+
+    // Decrypt the private mutes if a signer is available and they aren't unlocked yet
+    if (signer && hasHiddenTags(event) && !isHiddenMutesUnlocked(event)) {
+      try {
+        await unlockHiddenMutes(event, signer);
+      } catch (error) {
+        log("Failed to unlock private mutes", {
+          error: Reflect.get(error as object, "message") || "Unknown error",
+        });
+      }
+    }
+
+    // getMutedThings merges the public mutes with the hidden mutes (if unlocked)
+    const hidden = getHiddenMutedThings(event);
+    const mutes = getMutedThings(event);
+    return hidden ? mergeMutes(mutes, hidden).pubkeys : mutes.pubkeys;
+  }),
+  // Cache value for 60s
+  shareAndHold(),
+);
+
+/** Returns true if the user has muted the given pubkey */
+export async function isMuted(pubkey: string): Promise<boolean> {
+  const muted = await firstValueFrom(
+    // Fall back to an empty set if the mute list cannot be loaded in time
+    mutedPubkeys$.pipe(
+      timeout({ first: 2000, with: () => of(new Set<string>()) }),
+    ),
+  );
+  return muted.has(pubkey);
+}
+
 export const groups$ = combineLatest([user$, mailboxes$]).pipe(
   switchMap(([user, mailboxes]) => {
     if (!user || !mailboxes) return EMPTY;
@@ -234,11 +301,8 @@ export const groups$ = combineLatest([user$, mailboxes$]).pipe(
       pubkey: user,
     });
   }),
-  share({
-    resetOnRefCountZero: false,
-    resetOnComplete: false,
-    connector: () => new ReplaySubject(1),
-  }),
+  // Cache value fro 60s
+  shareAndHold(),
 );
 
 /** An observable that loads the users people lists */
@@ -246,9 +310,6 @@ export const lists$ = combineLatest([user$, mailboxes$]).pipe(
   switchMap(([user, mailboxes]) =>
     listsLoader({ pubkey: user, relays: mailboxes?.outboxes }).pipe(toArray()),
   ),
-  share({
-    resetOnRefCountZero: false,
-    resetOnComplete: false,
-    connector: () => new ReplaySubject(1),
-  }),
+  // cache value fro 60s
+  shareAndHold(),
 );

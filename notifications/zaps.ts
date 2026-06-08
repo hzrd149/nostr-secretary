@@ -13,12 +13,21 @@ import { buildOpenLink } from "../helpers/link";
 import { loadLists } from "../helpers/lists";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
-import { blacklist$, eventStore, tagged$, whitelist$ } from "../services/nostr";
+import {
+  blacklist$,
+  eventStore,
+  isMuted,
+  tagged$,
+  whitelist$,
+} from "../services/nostr";
 import { sendNotification } from "../services/ntfy";
 
 /** Check if a sender should receive notifications based on whitelist/blacklist */
 async function shouldNotify(pubkey: string): Promise<boolean> {
   const { zaps } = getConfig();
+
+  // Never notify for pubkeys the user has muted (NIP-51 kind 10000)
+  if (await isMuted(pubkey)) return false;
 
   // If there are blacklists, check if sender is blacklisted
   if (zaps.blacklists.length > 0) {
