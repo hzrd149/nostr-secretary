@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Filter notifications by the user's mute list.
+
 ## 0.3.0
 
 - Migrate to applesauce v6 (`applesauce-core`, `applesauce-common`, `applesauce-loaders`, `applesauce-relay`, `applesauce-accounts`, `applesauce-signers`).
