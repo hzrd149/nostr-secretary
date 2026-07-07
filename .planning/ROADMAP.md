@@ -37,3 +37,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Notification rate limiting per type and global with grouped overflow (BACKLOG)
+
+**Goal:** Introduce rate limiting for notifications — both per-notification-type limits and a global rate limit across all notifications — to prevent spamming the user's phone when there's heavy group chat activity or repeated nostr tags. When notifications hit a rate limit, send a single grouped notification letting the user know a lot of stuff has happened (e.g., "47 new mentions, 12 group messages") instead of delivering each one individually.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
