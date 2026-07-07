@@ -1,0 +1,29 @@
+{
+  "topic": "pre-modes-fixture-topic",
+  "lookupRelays": ["wss://purplepag.es"],
+  "appLink": "nostr:{link}",
+  "whitelists": [],
+  "blacklists": [],
+  "messages": {
+    "enabled": false,
+    "sendContent": false,
+    "whitelists": [],
+    "blacklists": []
+  },
+  "replies": {
+    "enabled": true,
+    "whitelists": [],
+    "blacklists": []
+  },
+  "zaps": {
+    "enabled": true,
+    "whitelists": [],
+    "blacklists": []
+  },
+  "groups": {
+    "enabled": true,
+    "whitelists": ["existing-whitelisted-pubkey"],
+    "blacklists": ["existing-blacklisted-pubkey"],
+    "groupLink": "https://chachi.chat/{hostname}/{group}"
+  }
+}

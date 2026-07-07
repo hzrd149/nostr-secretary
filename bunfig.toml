@@ -1,0 +1,5 @@
+[test]
+# Runs before any test file's imports so services/config.ts (which reads
+# Bun.env.CONFIG at import time) never loads against the real project
+# config.json, even when loaded transitively (see tests/setup.ts).
+preload = ["./tests/setup.ts"]
