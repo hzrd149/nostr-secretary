@@ -19,3 +19,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Reimagine web config pages from scratch (BACKLOG)
+
+**Goal:** Throw away the existing web config pages and rebuild them from scratch with better layouts and simpler flows. The current pages are being completely reimagined rather than iteratively improved.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
