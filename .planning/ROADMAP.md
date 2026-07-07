@@ -55,3 +55,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.7: Review and add NIP-04 DM support per applesauce docs (BACKLOG)
+
+**Goal:** Review current DM handling and add proper NIP-04 DM support, following the recommended implementation approach from the applesauce SDK documentation. Ensure decryption, sending, and subscription flows match applesauce's documented patterns for NIP-04 encrypted direct messages.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
