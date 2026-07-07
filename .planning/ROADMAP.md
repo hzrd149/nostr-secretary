@@ -7,7 +7,7 @@
 **Goal:** Add per-group notification mode settings (all messages, only @mention, etc.) for NIP-29 groups, including a NIP-29 groups section in the notifications settings view.
 **Depends on:** None
 **Requirements:** D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10 (decisions in 01-CONTEXT.md — no formal REQUIREMENTS.md for this project)
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 **Wave 1**
@@ -16,7 +16,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Config storage, migration backfill, D-07 changelog (Wave 2)
+- [x] 01-02-PLAN.md — Config storage, migration backfill, D-07 changelog (Wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

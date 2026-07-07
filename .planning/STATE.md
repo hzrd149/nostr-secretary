@@ -6,15 +6,15 @@ current_phase: 01
 current_phase_name: nip-29-group-notification-modes
 status: executing
 stopped_at: Phase 01 planned, ready to execute
-last_updated: "2026-07-07T21:55:26.369Z"
+last_updated: "2026-07-07T22:09:12.454Z"
 last_activity: 2026-07-07
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 40
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 ## Current Position
 
 Phase: 01 (nip-29-group-notification-modes) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 01
-Last activity: 2026-07-07 — Phase 01 execution started
+Plan: 2 of 5
+Status: Plan 01-02 complete, executing Phase 01
+Last activity: 2026-07-07 — Completed 01-02-PLAN.md
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P02 | 20min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Decisions are logged in phase CONTEXT.md files.
 Recent decisions affecting current work:
 
 - [Phase 01]: Per-group modes stored as a string union (all/mentions/muted), default 'mentions' (D-01/D-06)
+- [Phase 01]: Config test-process safety implemented as a global bunfig.toml [test] preload (tests/setup.ts) since Bun shares one module cache across all bun:test files in a run
+- [Phase 01]: D-07 quieter-by-default behavior change recorded in CHANGELOG.md only; no in-app banner, no new AppConfig flag
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07 16:36
+Last session: 2026-07-07T22:08:27.042Z
 Stopped at: Phase 01 planned, ready to execute
 Resume file: None
