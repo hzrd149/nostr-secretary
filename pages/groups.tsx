@@ -2,6 +2,7 @@ import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import type { BunRequest } from "bun";
 import { defined } from "applesauce-core";
 import {
+  encodeGroupPointer,
   getGroupPointerFromGroupTag,
   // The project helper (helpers/groups.ts) fetches a kind-39000 event over the
   // network; applesauce's export of the same name parses an already-fetched
@@ -20,6 +21,7 @@ import { CACHI_GROUP_LINK } from "../const";
 import {
   getGroupMetadata as fetchGroupMetadataEvent,
   getGroupMode,
+  isGroupNotificationMode,
   type GroupNotificationMode,
 } from "../helpers/groups";
 
@@ -288,8 +290,29 @@ const route = {
             .filter((line) => line.length > 0) || [],
         );
 
-        // Update config
+        // Re-derive joinedGroups server-side using the SAME getJoinedGroups()
+        // helper GET uses, so the positional order matches what was rendered
+        // and the mode_N signals zip onto the correct groups (Pitfall 2).
         const currentConfig = config$.getValue();
+        const joinedGroups = await getJoinedGroups();
+
+        // Start from the existing modes map so entries for groups the user
+        // has since left are preserved (harmless orphans, D-10) rather than
+        // pruned on every save; only currently-joined groups are overwritten
+        // below with their newly submitted (and validated) mode.
+        const modes: Record<string, GroupNotificationMode> = {
+          ...currentConfig.groups.modes,
+        };
+        joinedGroups.forEach((group, index) => {
+          const raw = signals[`mode_${index}`];
+          // ASVS V5 (T-01-01): never trust the client-submitted mode string
+          // verbatim -- only write it if it's one of the three literal modes.
+          if (isGroupNotificationMode(raw)) {
+            modes[encodeGroupPointer(group)] = raw;
+          }
+        });
+
+        // Update config
         const newConfig = {
           ...currentConfig,
           groups: {
@@ -297,9 +320,7 @@ const route = {
             groupLink: groupLink?.trim() || CACHI_GROUP_LINK,
             whitelists,
             blacklists,
-            // Preserve per-group modes untouched; the /groups PATCH handler for
-            // per-group mode editing is added in a later plan (D-10)
-            modes: currentConfig.groups.modes,
+            modes,
           },
         };
 
