@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: nip-29-group-notification-modes
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-07-07T22:14:52.966Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-07-07T22:28:12.590Z"
 last_activity: 2026-07-07
-last_activity_desc: Completed 01-03-PLAN.md
+last_activity_desc: Completed 01-04-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -29,11 +29,11 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 ## Current Position
 
 Phase: 01 (nip-29-group-notification-modes) — EXECUTING
-Plan: 3 of 5
-Status: Plan 01-03 complete, executing Phase 01
-Last activity: 2026-07-07 — Completed 01-03-PLAN.md
+Plan: 4 of 5
+Status: Plan 01-04 complete, executing Phase 01
+Last activity: 2026-07-07 — Completed 01-04-PLAN.md
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [██████░░░░] 60%
 *Updated after each plan completion*
 | Phase 01 P02 | 20min | 3 tasks | 7 files |
 | Phase 01-nip-29-group-notification-modes P03 | 4min | 2 tasks | 2 files |
+| Phase 01 P04 | 35min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 01]: Config test-process safety implemented as a global bunfig.toml [test] preload (tests/setup.ts) since Bun shares one module cache across all bun:test files in a run
 - [Phase 01]: D-07 quieter-by-default behavior change recorded in CHANGELOG.md only; no in-app banner, no new AppConfig flag
 - [Phase 01]: Mode gate inserted as first statements in the existing subscribe() callback, guarded on missing pubkey with early return, before the unchanged shouldNotify sender gate (D-09 layering)
+- [Phase 01]: getJoinedGroups() extracted as one shared function called by both GET and PATCH so the 'same filter/map chain' invariant is structurally guaranteed (Pitfall 2)
+- [Phase 01]: PATCH seeds modes from the existing config.groups.modes (not an empty object) so orphaned entries for left groups survive across saves (D-10)
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T22:14:47.361Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-07-07T22:26:39.633Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None
