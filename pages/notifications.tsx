@@ -5,6 +5,8 @@ import * as messagesNotification from "../notifications/messages";
 import * as repliesNotification from "../notifications/replies";
 import * as zapsNotification from "../notifications/zaps";
 import * as groupsNotification from "../notifications/groups";
+import config$ from "../services/config";
+import { summarizeGroupModes } from "../helpers/groups";
 
 const notificationStyles = `
   .notifications-container {
@@ -76,6 +78,21 @@ const notificationStyles = `
     background: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
+  }
+
+  .mode-count.all {
+    color: #667eea;
+    font-weight: 600;
+  }
+
+  .mode-count.mentions {
+    color: #856404;
+    font-weight: 600;
+  }
+
+  .mode-count.muted {
+    color: #721c24;
+    font-weight: 600;
   }
 
   .config-btn {
@@ -208,6 +225,11 @@ async function NotificationsList() {
   const groupsEnabled = await firstValueFrom(groupsNotification.enabled$).catch(
     () => false,
   );
+  const groupModeSummary = summarizeGroupModes(
+    config$.getValue().groups.modes ?? {},
+  );
+  const totalGroupModes =
+    groupModeSummary.all + groupModeSummary.mentions + groupModeSummary.muted;
 
   return (
     <div class="notification-section">
@@ -277,6 +299,22 @@ async function NotificationsList() {
           <div class="notification-description">
             Get notified about activity in your NIP-29 groups (channels).
             Configure group-specific whitelists and blacklists.
+          </div>
+          <div class="notification-description">
+            {totalGroupModes > 0 ? (
+              <>
+                <span class="mode-count all">{groupModeSummary.all}</span> all
+                messages ·{" "}
+                <span class="mode-count mentions">
+                  {groupModeSummary.mentions}
+                </span>{" "}
+                mentions only ·{" "}
+                <span class="mode-count muted">{groupModeSummary.muted}</span>{" "}
+                muted
+              </>
+            ) : (
+              "No groups joined yet"
+            )}
           </div>
         </div>
         <div class="notification-actions">
