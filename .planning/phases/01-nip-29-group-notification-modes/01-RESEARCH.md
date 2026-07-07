@@ -709,11 +709,15 @@ if (parsed.groups && parsed.groups.modes === undefined) {
 | A2 | No NIP-29 relay implementation strips or rewrites `p` tags on kind-9 relay before broadcast | Pattern 1 (`messageMentionsPubkey`) | Medium — if some relay implementation strips `p` tags, mention detection would silently fall back to content-only matching for messages from that relay; not verified against a live relay in this research session, only against the NIP-29 spec text and installed SDK behavior |
 | A3 | Pruning orphaned `groups.modes` entries for left groups is unnecessary for Phase 1 correctness (only "survive," not "garbage collect," is required per D-10) | Config Storage Shape (D-10) | Low — worst case is a few stale small string keys accumulating in `config.json` over years; no functional impact |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the UI surface D-07's behavior-change note (existing users
-   dropping to mentions-only) as an in-app banner, or only in
-   CHANGELOG.md/release notes?**
+1. **[RESOLVED — planning, 2026-07-07] Should the UI surface D-07's
+   behavior-change note (existing users dropping to mentions-only) as an
+   in-app banner, or only in CHANGELOG.md/release notes?**
+   **Resolution:** CHANGELOG.md only for Phase 1 — no in-app banner, no new
+   `AppConfig` flag (per the recommendation below). Encoded in `01-02-PLAN.md`
+   (objective + changelog task). A lightweight one-time `/groups` banner is
+   left to a future phase.
    - What we know: D-07 explicitly says "Planning should decide whether
      existing installs get any migration messaging" — this was left open on
      purpose.

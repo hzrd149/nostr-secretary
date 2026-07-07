@@ -10,8 +10,16 @@
 **Plans:** 5 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 01-01-PLAN.md — Pure group-mode helpers + test infra (Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 01-02-PLAN.md — Config storage, migration backfill, D-07 changelog (Wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 01-03-PLAN.md — Notification mode gate wiring + D-09 truth table (Wave 3)
 - [ ] 01-04-PLAN.md — /groups per-group list + PATCH with ASVS V5 validation (Wave 3)
 - [ ] 01-05-PLAN.md — /notifications Groups card summary (Wave 3)
@@ -24,6 +32,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (plan with /gsd-plan-phase)
 
 ### Phase 3: Review and add NIP-04 DM support per applesauce docs
@@ -34,6 +43,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (plan with /gsd-plan-phase)
 
 ### Phase 4: Add NIP-17 DM notifications support per applesauce docs
@@ -44,6 +54,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (plan with /gsd-plan-phase)
 
 ### Phase 5: DM notifications split into contacts and others categories
@@ -54,6 +65,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (plan with /gsd-plan-phase)
 
 ### Phase 6: Notification rate limiting per type and global with grouped overflow
@@ -64,6 +76,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (plan with /gsd-plan-phase)
 
 ### Phase 7: Default rate limit for chat groups and DMs on join
@@ -74,6 +87,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (plan with /gsd-plan-phase)
 
 ## Backlog
@@ -85,6 +99,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
 ### Phase 999.4: Web config guided setup flow (BACKLOG)
@@ -94,4 +109,5 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready)
