@@ -119,6 +119,10 @@ None - no external service configuration required.
 - `pages/notifications.tsx` (plan 05) can use `summarizeGroupModes` (already exported from `helpers/groups.ts` in plan 01) independent of this plan's changes
 - No blockers identified
 
+## Self-Check: PASSED
+
+All created/modified files verified present on disk; all task and summary commits (351cfbf, 621e1e2, d68c6d1) verified in git log.
+
 ---
 *Phase: 01-nip-29-group-notification-modes*
 *Completed: 2026-07-07*

@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: nip-29-group-notification-modes
 status: executing
-stopped_at: Phase 01 planned, ready to execute
-last_updated: "2026-07-07T22:09:12.454Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-07-07T22:14:52.966Z"
 last_activity: 2026-07-07
-last_activity_desc: Phase 01 execution started
+last_activity_desc: Completed 01-03-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 3
+  percent: 0
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 ## Current Position
 
 Phase: 01 (nip-29-group-notification-modes) — EXECUTING
-Plan: 2 of 5
-Status: Plan 01-02 complete, executing Phase 01
-Last activity: 2026-07-07 — Completed 01-02-PLAN.md
+Plan: 3 of 5
+Status: Plan 01-03 complete, executing Phase 01
+Last activity: 2026-07-07 — Completed 01-03-PLAN.md
 
-Progress: [████░░░░░░] 40%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [████░░░░░░] 40%
 
 *Updated after each plan completion*
 | Phase 01 P02 | 20min | 3 tasks | 7 files |
+| Phase 01-nip-29-group-notification-modes P03 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,7 @@ Recent decisions affecting current work:
 - [Phase 01]: Per-group modes stored as a string union (all/mentions/muted), default 'mentions' (D-01/D-06)
 - [Phase 01]: Config test-process safety implemented as a global bunfig.toml [test] preload (tests/setup.ts) since Bun shares one module cache across all bun:test files in a run
 - [Phase 01]: D-07 quieter-by-default behavior change recorded in CHANGELOG.md only; no in-app banner, no new AppConfig flag
+- [Phase 01]: Mode gate inserted as first statements in the existing subscribe() callback, guarded on missing pubkey with early return, before the unchanged shouldNotify sender gate (D-09 layering)
 
 ### Pending Todos
 
@@ -86,6 +88,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T22:08:27.042Z
-Stopped at: Phase 01 planned, ready to execute
+Last session: 2026-07-07T22:14:47.361Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
