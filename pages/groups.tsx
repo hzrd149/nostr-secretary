@@ -157,6 +157,9 @@ const route = {
             groupLink: groupLink?.trim() || CACHI_GROUP_LINK,
             whitelists,
             blacklists,
+            // Preserve per-group modes untouched; the /groups PATCH handler for
+            // per-group mode editing is added in a later plan (D-10)
+            modes: currentConfig.groups.modes,
           },
         };
 

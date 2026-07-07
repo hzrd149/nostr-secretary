@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import { nanoid } from "nanoid";
 import { BehaviorSubject, map, Observable, skip } from "rxjs";
 import { CACHI_GROUP_LINK, DEFAULT_LOOKUP_RELAYS } from "../const";
+import type { GroupNotificationMode } from "../helpers/groups";
 
 export type AppConfig = {
   /** The hex pubkey of the user */
@@ -48,6 +49,9 @@ export type AppConfig = {
     whitelists: string[];
     blacklists: string[];
     groupLink: string;
+    /** Per-group notification mode, keyed by encodeGroupPointer(group).
+     *  Groups with no entry fall back to DEFAULT_GROUP_NOTIFICATION_MODE (D-06/D-10). */
+    modes: Record<string, GroupNotificationMode>;
   };
 };
 
@@ -78,6 +82,7 @@ const config$ = new BehaviorSubject<AppConfig>({
     whitelists: [],
     blacklists: [],
     groupLink: CACHI_GROUP_LINK,
+    modes: {},
   },
 });
 
@@ -98,6 +103,11 @@ if (await fs.exists(CONFIG_PATH)) {
       blacklists: [],
     };
     delete parsed.directMessageNotifications;
+  }
+
+  // Backfill groups.modes for configs written before per-group modes shipped (D-10, Pitfall 1)
+  if (parsed.groups && parsed.groups.modes === undefined) {
+    parsed.groups.modes = {};
   }
 
   config$.next({ ...config$.value, ...parsed });
