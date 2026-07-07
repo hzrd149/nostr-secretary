@@ -28,3 +28,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: Web config guided setup flow (BACKLOG)
+
+**Goal:** Add a guided setup flow to the web config pages that walks the user through (1) connecting their signer or opting for read-only mode, (2) setting notification preferences, and (3) connecting their ntfy app. Related to 999.3 (web config reimagining) — this is the onboarding/setup flow slice of that larger effort.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
