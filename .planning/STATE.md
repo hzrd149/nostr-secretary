@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: nip-29-group-notification-modes
 status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-07-07T22:28:12.590Z"
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-07-07T22:33:19.308Z"
 last_activity: 2026-07-07
-last_activity_desc: Completed 01-04-PLAN.md
+last_activity_desc: Completed 01-05-PLAN.md
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 14
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 
 ## Current Position
 
-Phase: 01 (nip-29-group-notification-modes) — EXECUTING
-Plan: 4 of 5
-Status: Plan 01-04 complete, executing Phase 01
-Last activity: 2026-07-07 — Completed 01-04-PLAN.md
+Phase: 01 (nip-29-group-notification-modes) — COMPLETE
+Plan: 5 of 5
+Status: Phase complete — ready for verification
+Last activity: 2026-07-07 — Completed 01-05-PLAN.md
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 80%
 | Phase 01 P02 | 20min | 3 tasks | 7 files |
 | Phase 01-nip-29-group-notification-modes P03 | 4min | 2 tasks | 2 files |
 | Phase 01 P04 | 35min | 2 tasks | 1 files |
+| Phase 01 P05 | 8min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Recent decisions affecting current work:
 - [Phase 01]: Mode gate inserted as first statements in the existing subscribe() callback, guarded on missing pubkey with early return, before the unchanged shouldNotify sender gate (D-09 layering)
 - [Phase 01]: getJoinedGroups() extracted as one shared function called by both GET and PATCH so the 'same filter/map chain' invariant is structurally guaranteed (Pitfall 2)
 - [Phase 01]: PATCH seeds modes from the existing config.groups.modes (not an empty object) so orphaned entries for left groups survive across saves (D-10)
+- [Phase 01]: The /notifications zero-groups check sums summarizeGroupModes' three counts only (no new groups$ observable), per the plan's explicit constraint (D-05)
 
 ### Pending Todos
 
@@ -91,6 +93,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T22:26:39.633Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-07-07T22:33:19.301Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
