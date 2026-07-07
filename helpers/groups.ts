@@ -4,6 +4,10 @@ import {
   encodeGroupPointer,
   type GroupPointer,
 } from "applesauce-common/helpers";
+import {
+  getContentPointers,
+  getPubkeyFromDecodeResult,
+} from "applesauce-core/helpers";
 import type { NostrEvent } from "nostr-tools";
 
 const cache = new Map<string, NostrEvent>();
@@ -23,4 +27,64 @@ export async function getGroupMetadata(
 
   if (metadata) cache.set(encodeGroupPointer(group), metadata);
   return metadata;
+}
+
+/** Per-group notification mode: receive all messages, only @mentions, or none (D-01) */
+export type GroupNotificationMode = "all" | "mentions" | "muted";
+
+/** Default mode for any group not present in the per-group mode map (D-06) */
+export const DEFAULT_GROUP_NOTIFICATION_MODE: GroupNotificationMode =
+  "mentions";
+
+/** Returns true if `message` mentions `pubkey` via a "p" tag or a nostr: content reference (D-02) */
+export function messageMentionsPubkey(
+  message: NostrEvent,
+  pubkey: string,
+): boolean {
+  const pTagged = message.tags.some((t) => t[0] === "p" && t[1] === pubkey);
+  if (pTagged) return true;
+
+  return getContentPointers(message.content).some(
+    (pointer) => getPubkeyFromDecodeResult(pointer) === pubkey,
+  );
+}
+
+/** Resolves whether a group message should proceed past the mode gate (D-01/D-09 step 2) */
+export function passesGroupModeGate(
+  mode: GroupNotificationMode,
+  message: NostrEvent,
+  userPubkey: string,
+): boolean {
+  switch (mode) {
+    case "muted":
+      return false;
+    case "mentions":
+      return messageMentionsPubkey(message, userPubkey);
+    case "all":
+      return true;
+  }
+}
+
+/** Looks up a group's configured mode, falling back to the default (D-06) */
+export function getGroupMode(
+  modes: Record<string, GroupNotificationMode>,
+  group: GroupPointer,
+): GroupNotificationMode {
+  return modes[encodeGroupPointer(group)] ?? DEFAULT_GROUP_NOTIFICATION_MODE;
+}
+
+/** Per-mode counts for the /notifications Groups card summary (D-05) */
+export function summarizeGroupModes(
+  modes: Record<string, GroupNotificationMode>,
+): { all: number; mentions: number; muted: number } {
+  const counts = { all: 0, mentions: 0, muted: 0 };
+  for (const mode of Object.values(modes)) counts[mode]++;
+  return counts;
+}
+
+/** ASVS V5 input validator: narrows an untrusted value to GroupNotificationMode (used by the /groups PATCH handler) */
+export function isGroupNotificationMode(
+  value: unknown,
+): value is GroupNotificationMode {
+  return value === "all" || value === "mentions" || value === "muted";
 }

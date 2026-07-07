@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "bun run --watch index.ts",
     "lint": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
