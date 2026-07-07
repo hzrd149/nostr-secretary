@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Authenticate to NIP-29 group relays via NIP-42.
+
 ## 0.3.1
 
 - Filter notifications by the user's mute list.

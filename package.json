@@ -1,6 +1,6 @@
 {
   "name": "nostr-secretary",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Stupid simple nostr notifications",
   "module": "index.ts",
   "type": "module",
