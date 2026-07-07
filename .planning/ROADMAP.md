@@ -64,3 +64,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.8: Add NIP-17 DM notifications support per applesauce docs (BACKLOG)
+
+**Goal:** Add support for NIP-17 (Gift-wrapped Direct Messages) DM notifications, following the recommended implementation approach from the applesauce SDK documentation. Ensure the notification server subscribes to NIP-17 wrapped DM events, decrypts them via applesauce's documented patterns, and fires notifications for new DMs. Related to 999.7 (NIP-04 DM support) — these are the two DM NIPs that should both be supported.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
