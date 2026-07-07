@@ -1,5 +1,6 @@
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import {
+  getGroupPointerFromGroupTag,
   getHiddenMutedThings,
   getMutedThings,
   getRelaysFromList,
@@ -39,6 +40,7 @@ import {
   share,
   shareReplay,
   skip,
+  startWith,
   switchMap,
   timeout,
   timer,
@@ -142,14 +144,46 @@ configValue("signer")
     }
   });
 
+export const groups$ = combineLatest([user$, mailboxes$]).pipe(
+  switchMap(([user, mailboxes]) => {
+    if (!user || !mailboxes) return EMPTY;
+    return eventStore.replaceable({
+      kind: 10009,
+      pubkey: user,
+    });
+  }),
+  // Cache value fro 60s
+  shareAndHold(),
+);
+
+/** Observable of unique group relay URLs from the users kind 10009 group list */
+const groupRelays$ = groups$.pipe(
+  map((list) => {
+    if (!list) return [];
+    return [
+      ...new Set(
+        list.tags
+          .filter((t) => t[0] === "group" && t[1])
+          .map(getGroupPointerFromGroupTag)
+          .map((g) => g.relay),
+      ),
+    ];
+  }),
+  startWith([] as string[]),
+);
+
 // Attempt to authenticate to relays
-combineLatest([signer$, mailboxes$, messageInboxes$])
+combineLatest([signer$, mailboxes$, messageInboxes$, groupRelays$])
   .pipe(
-    switchMap(([signer, mailboxes, messageInboxes]) => {
+    switchMap(([signer, mailboxes, messageInboxes, groupRelays]) => {
       if (!signer) return EMPTY;
 
       return merge(
-        ...mergeRelaySets(mailboxes?.inboxes, messageInboxes)
+        ...mergeRelaySets(
+          mailboxes?.inboxes,
+          messageInboxes,
+          groupRelays,
+        )
           // Get the relays
           .map((url) => pool.relay(url))
           // Create an observable that watches all nessiary state
@@ -292,18 +326,6 @@ export async function isMuted(pubkey: string): Promise<boolean> {
   );
   return muted.has(pubkey);
 }
-
-export const groups$ = combineLatest([user$, mailboxes$]).pipe(
-  switchMap(([user, mailboxes]) => {
-    if (!user || !mailboxes) return EMPTY;
-    return eventStore.replaceable({
-      kind: 10009,
-      pubkey: user,
-    });
-  }),
-  // Cache value fro 60s
-  shareAndHold(),
-);
 
 /** An observable that loads the users people lists */
 export const lists$ = combineLatest([user$, mailboxes$]).pipe(
