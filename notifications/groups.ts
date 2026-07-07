@@ -22,6 +22,7 @@ import {
   of,
   switchMap,
 } from "rxjs";
+import { getGroupMode, passesGroupModeGate } from "../helpers/groups";
 import { buildGroupLink } from "../helpers/link";
 import { loadLists } from "../helpers/lists";
 import config$, { getConfig } from "../services/config";
@@ -116,6 +117,17 @@ enabled$
     ),
   )
   .subscribe(async ({ group, metadata, message }) => {
+    const { groups, pubkey } = getConfig();
+    if (!pubkey) return;
+
+    // Per-group mode gate (D-01/D-06/D-09 step 2)
+    const mode = getGroupMode(groups.modes, group);
+    if (!passesGroupModeGate(mode, message, pubkey))
+      return log("Skipping group notification: muted or non-matching mode", {
+        group: encodeGroupPointer(group),
+        mode,
+      });
+
     if (!(await shouldNotify(message.pubkey)))
       return log(
         "Skipping reply notification for blacklisted/non-whitelisted sender",
