@@ -73,7 +73,13 @@ export async function GroupsConfigView() {
 
   const joinedGroups = await getJoinedGroups();
   const metadataByIndex = await Promise.all(
-    joinedGroups.map((group) => fetchGroupMetadataEvent(group)),
+    joinedGroups.map((group) =>
+      // Degrade gracefully per-group: a relay connection error (as opposed
+      // to the timeout already handled inside fetchGroupMetadataEvent)
+      // must not reject the whole Promise.all and take down the entire
+      // /groups page for every other group (WR-01).
+      fetchGroupMetadataEvent(group).catch(() => undefined),
+    ),
   );
 
   return (
