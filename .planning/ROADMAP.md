@@ -26,14 +26,24 @@ Plans:
 
 ### Phase 2: Save notification preferences as encrypted 1xxxx nostr event
 
-**Goal:** Persist user notification preferences (per NIP-29 group and for public nostr in general) as an encrypted 1xxxx replaceable Nostr event so settings survive restarts, sync across devices/clients over nostr, allow other simple web apps to modify them, and let the notification server subscribe for updates.
+**Goal:** Persist user notification preferences (per NIP-29 group and for public nostr in general) as an encrypted NIP-78 kind-30078 replaceable Nostr event (D2-01 supersedes the literal "1xxxx" wording) so settings survive restarts, sync across devices/clients over nostr, allow other simple web apps to modify them, and let the notification server subscribe for updates.
 **Depends on:** Phase 1
-**Requirements:** TBD
-**Plans:** 0 plans
+**Requirements:** D2-01, D2-02, D2-03, D2-04, D2-05, D2-06, D2-07, D2-08, D2-09, D2-10, D2-11, D2-12, D2-13, D2-14, D2-15 (decisions in 02-CONTEXT.md — no formal REQUIREMENTS.md for this project)
+**Plans:** 4 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (plan with /gsd-plan-phase)
+- [ ] 02-01-PLAN.md — Pure preferences helpers (serialize/merge/validate/conflict) + tests (Wave 1)
+- [ ] 02-02-PLAN.md — Expand + wire SIGNER_PERMISSIONS for kind-30078 signing & NIP-44 (Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-03-PLAN.md — Reactive preferences service: publish-on-change + subscribe-and-apply (Wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-04-PLAN.md — Non-blocking no-signer sync hint on /notifications (Wave 3)
 
 ### Phase 3: Review and add NIP-04 DM support per applesauce docs
 
