@@ -13,6 +13,17 @@ import {
 // `decide` helper documents the exact D-09 layering implemented in
 // notifications/groups.ts's `.subscribe()` callback: master switch ->
 // mode gate (real passesGroupModeGate) -> sender gate -> notify.
+//
+// TODO(WR-04, tracked follow-up): this only covers `passesGroupModeGate` in
+// isolation -- it has zero coverage of the actual wiring in
+// notifications/groups.ts, so a future change that reorders the mode gate
+// vs. the shouldNotify sender check, drops the `!pubkey` guard, or changes
+// how `groups.modes` is read would keep this suite green while regressing
+// production behavior. Fix: export the `.subscribe()` callback in
+// notifications/groups.ts as a named, independently-callable function
+// taking `{ group, metadata, message }` plus injected
+// `getConfig`/`shouldNotify`/`sendNotification`, so the real code path can
+// be unit tested here instead of only this parallel mirror of it.
 
 const userSecretKey = generateSecretKey();
 const userPubkey = getPublicKey(userSecretKey);
