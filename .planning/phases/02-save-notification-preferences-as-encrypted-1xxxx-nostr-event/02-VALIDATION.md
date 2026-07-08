@@ -19,7 +19,7 @@ created: 2026-07-07
 |----------|-------|
 | **Framework** | `bun test` (Bun built-in test runner) |
 | **Config file** | `bunfig.toml` (`preload = ["./tests/setup.ts"]` — isolates `Bun.env.CONFIG` to a temp copy so tests never clobber the real `config.json`) |
-| **Quick run command** | `bun test tests/services/preferences.test.ts` (once created) |
+| **Quick run command** | `bun test tests/helpers/preferences.test.ts` (pure-helper tests; per Pitfall 6 there is intentionally NO `tests/services/preferences.test.ts`) |
 | **Full suite command** | `bun test` |
 | **Estimated runtime** | ~1–3 seconds |
 
@@ -40,9 +40,11 @@ created: 2026-07-07
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | — | — | D2-06 (serialize subset) | — | rules-only payload; never includes signer/pubkey/ntfy | unit | `bun test tests/services/preferences.test.ts` | ❌ W0 | ⬜ pending |
-| TBD | — | — | D2-08 (newest-wins) | — | older/equal `created_at` ignored | unit | `bun test` | ❌ W0 | ⬜ pending |
-| TBD | — | — | D2-09 (loop prevention) | — | remote-origin update does not republish | unit | `bun test` | ❌ W0 | ⬜ pending |
+| 02-01-01 | 01 | 1 | D2-04/05/06 (serialize subset) | T-02-01 | rules-only payload; never includes signer/pubkey/server/topic/email/lookupRelays/sendContent/groupLink | unit | `bun test tests/helpers/preferences.test.ts` | ❌ W0 | ⬜ pending |
+| 02-01-01 | 01 | 1 | D2-08 (newest-wins HWM) | — | older/equal `created_at` ignored (`isNewerPrefs`) | unit | `bun test tests/helpers/preferences.test.ts` | ❌ W0 | ⬜ pending |
+| 02-01-01 | 01 | 1 | D2-06 (merge preserves local-only fields) | T-02-02 | inbound merge never clobbers signer/ntfy/pubkey | unit | `bun test tests/helpers/preferences.test.ts` | ❌ W0 | ⬜ pending |
+| 02-02-01 | 02 | 1 | D2-13 (permissions expanded + wired) | T-02-03 | `SIGNER_PERMISSIONS` contains `sign_event:30078`/`nip44_encrypt`/`nip44_decrypt` | unit | `bun test tests/const.test.ts` | ❌ W0 | ⬜ pending |
+| 02-03-* | 03 | 2 | D2-09/14/15 (loop prevention, timeout, degrade) | T-02-08 | service-level: manual verification (no live-service test per Pitfall 6) | manual | see Manual-Only table | — | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,9 +52,11 @@ created: 2026-07-07
 
 ## Wave 0 Requirements
 
-- [ ] `tests/services/preferences.test.ts` — unit stubs for the pure serialize/merge/high-water-mark helpers
+- [ ] `tests/helpers/preferences.test.ts` (02-01) — unit tests for the pure serialize/merge/high-water-mark/validation helpers
+- [ ] `tests/const.test.ts` (02-02) — asserts `SIGNER_PERMISSIONS` contains the required NIP-46 permission tokens
 - [ ] `tests/fixtures/` — a config fixture + a sample decrypted-prefs JSON fixture
 - [ ] Framework already installed (`bun test` + `bunfig.toml` + `tests/setup.ts` exist)
+- [ ] `services/preferences.ts` RxJS-wiring has NO direct unit test (Pitfall 6 / WR-04 precedent) — covered by Manual-Only verifications instead
 
 ---
 
