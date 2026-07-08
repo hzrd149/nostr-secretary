@@ -65,12 +65,20 @@ export function passesGroupModeGate(
   }
 }
 
-/** Looks up a group's configured mode, falling back to the default (D-06) */
+/** Looks up a group's configured mode, falling back to the default (D-06).
+ *  Defensive against a `modes` map that is missing, `null`, or contains a
+ *  value that isn't one of the three literal modes (e.g. a hand-edited or
+ *  pre-validation config.json entry) -- always re-validates the stored
+ *  value via isGroupNotificationMode rather than trusting it as-is (WR-02).
+ */
 export function getGroupMode(
-  modes: Record<string, GroupNotificationMode>,
+  modes: Record<string, GroupNotificationMode> | undefined | null,
   group: GroupPointer,
 ): GroupNotificationMode {
-  return modes[encodeGroupPointer(group)] ?? DEFAULT_GROUP_NOTIFICATION_MODE;
+  const stored = modes?.[encodeGroupPointer(group)];
+  return isGroupNotificationMode(stored)
+    ? stored
+    : DEFAULT_GROUP_NOTIFICATION_MODE;
 }
 
 /** Per-mode counts for the /notifications Groups card summary (D-05) */

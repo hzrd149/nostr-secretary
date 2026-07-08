@@ -105,8 +105,16 @@ if (await fs.exists(CONFIG_PATH)) {
     delete parsed.directMessageNotifications;
   }
 
-  // Backfill groups.modes for configs written before per-group modes shipped (D-10, Pitfall 1)
-  if (parsed.groups && parsed.groups.modes === undefined) {
+  // Backfill groups.modes for configs written before per-group modes shipped
+  // (D-10, Pitfall 1). Guards against the documented legacy shape (key
+  // absent) as well as other invalid persisted shapes -- `null` (valid JSON,
+  // plausible from a hand-edited config.json) or any non-object value --
+  // since getGroupMode/passesGroupModeGate/MODE_BADGE all assume an object
+  // to index into (WR-02).
+  if (
+    parsed.groups &&
+    (parsed.groups.modes == null || typeof parsed.groups.modes !== "object")
+  ) {
     parsed.groups.modes = {};
   }
 
