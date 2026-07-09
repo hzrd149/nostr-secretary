@@ -1,0 +1,7 @@
+{
+  "workflow": {
+    "_auto_chain_active": false,
+    "test_command": "bun test",
+    "build_command": "bun run lint"
+  }
+}
