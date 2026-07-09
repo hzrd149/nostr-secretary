@@ -1,24 +1,39 @@
+import { mapEventsToStore } from "applesauce-core";
 import { unixNow } from "applesauce-core/helpers";
 import type { EventTemplate } from "applesauce-core/helpers/event";
 import {
-  BehaviorSubject,
+  getAppDataContent,
+  unlockAppData,
+} from "applesauce-common/helpers/app-data";
+import { onlyEvents } from "applesauce-relay";
+import {
   combineLatest,
   debounceTime,
   distinctUntilChanged,
+  EMPTY,
   firstValueFrom,
   map,
+  NEVER,
   of,
   ReplaySubject,
   share,
   skip,
+  switchMap,
   timeout,
   timer,
   type MonoTypeOperatorFunction,
 } from "rxjs";
-import { mailboxes$, pool, signer$ } from "./nostr";
-import config$, { getConfig } from "./config";
+import { eventStore, mailboxes$, pool, signer$, user$ } from "./nostr";
+import config$, { getConfig, updateConfig } from "./config";
 import { log } from "./logs";
-import { PREFS_KIND, PREFS_NAMESPACE, serializePrefs } from "../helpers/preferences";
+import {
+  isNewerPrefs,
+  mergePrefs,
+  PREFS_KIND,
+  PREFS_NAMESPACE,
+  sanitizeSyncedPrefs,
+  serializePrefs,
+} from "../helpers/preferences";
 
 /** Local copy of services/nostr.ts's private shareAndHold helper (not exported there). */
 function shareAndHold<T>(cacheTime = 60_000): MonoTypeOperatorFunction<T> {
@@ -36,6 +51,13 @@ function shareAndHold<T>(cacheTime = 60_000): MonoTypeOperatorFunction<T> {
  * already on the relay -- never a raw `skip(N)` counter (Pitfall 5).
  */
 let lastKnownPayloadJSON: string | null = null;
+
+/**
+ * D2-08 high-water-mark: the `created_at` of the newest remote preferences
+ * event already applied to `config$`. An inbound event is only applied when
+ * strictly newer than this value (never on equal/older/replayed events).
+ */
+let lastAppliedCreatedAt = 0;
 
 /**
  * Wraps a signer round-trip promise in a hard timeout. `NostrConnectSigner`
@@ -63,6 +85,25 @@ async function withTimeout<T>(
 export const enabled$ = combineLatest([config$, signer$]).pipe(
   map(([, signer]) => Boolean(signer)),
   distinctUntilChanged(),
+  shareAndHold(),
+);
+
+/**
+ * Reactive value of the user's own kind-30078 notification-prefs event, if
+ * any (mirrors `groups$`). Always passes `identifier: PREFS_NAMESPACE` --
+ * 30078 is parameterized-replaceable, and omitting the d-tag risks matching
+ * an unrelated 30078 app-data event for the same pubkey (Pitfall 2).
+ */
+export const preferencesEvent$ = combineLatest([user$, mailboxes$]).pipe(
+  switchMap(([user]) =>
+    user
+      ? eventStore.replaceable({
+          kind: PREFS_KIND,
+          pubkey: user,
+          identifier: PREFS_NAMESPACE,
+        })
+      : EMPTY,
+  ),
   shareAndHold(),
 );
 
@@ -157,3 +198,67 @@ config$
     if (json === lastKnownPayloadJSON) return; // D2-09: echo of what we already have on nostr
     void publishPreferences();
   });
+
+// D2-11: live REQ so remote edits (another device, or a third-party
+// interoperating app) arrive promptly, feeding eventStore -- which
+// preferencesEvent$ reacts to. Mirrors tagged$'s pool.subscription shape.
+combineLatest([user$, mailboxes$])
+  .pipe(
+    switchMap(([user, mailboxes]) => {
+      if (!user) return NEVER;
+      const relays = mailboxes?.outboxes?.length
+        ? mailboxes.outboxes
+        : getConfig().lookupRelays;
+      return pool
+        .subscription(
+          relays,
+          { kinds: [PREFS_KIND], authors: [user], "#d": [PREFS_NAMESPACE] },
+          { reconnect: Infinity, resubscribe: true },
+        )
+        .pipe(onlyEvents(), mapEventsToStore(eventStore));
+    }),
+  )
+  .subscribe();
+
+// D2-08/D2-09/D2-11: decrypt-and-apply pipeline, mirrors mutedPubkeys$'s
+// decrypt-in-switchMap(async) pattern. authors:[user] (above) plus
+// eventStore.replaceable's pubkey scoping (preferencesEvent$) is the
+// authorship guard -- only the user's own pubkey's events are considered
+// (Tampering mitigation, T-02-08).
+combineLatest([preferencesEvent$, signer$])
+  .pipe(
+    switchMap(async ([event, signer]) => {
+      if (!event || !signer) return;
+      // D2-08 high-water-mark gate BEFORE the expensive decrypt.
+      if (!isNewerPrefs(event.created_at, lastAppliedCreatedAt)) return;
+
+      try {
+        await withTimeout(unlockAppData(event, signer), 8000, "unlockAppData");
+        const raw = getAppDataContent<unknown>(event);
+        const sanitized = sanitizeSyncedPrefs(raw);
+        if (!sanitized) {
+          log("Ignoring malformed remote notification preferences", {
+            created_at: event.created_at,
+          });
+          return;
+        }
+
+        lastAppliedCreatedAt = event.created_at;
+        const merged = mergePrefs(getConfig(), sanitized);
+        // D2-09: set BEFORE updateConfig so the config$ echo this triggers
+        // no-ops the publish pipeline (Pattern 5 ordering).
+        lastKnownPayloadJSON = JSON.stringify(serializePrefs(merged));
+        updateConfig(merged);
+
+        // Log summary fields only -- never the decrypted payload (Information Disclosure mitigation).
+        log("Applied remote notification preferences", {
+          created_at: event.created_at,
+        });
+      } catch (error) {
+        log("Failed to decrypt/apply remote notification preferences", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }),
+  )
+  .subscribe();
