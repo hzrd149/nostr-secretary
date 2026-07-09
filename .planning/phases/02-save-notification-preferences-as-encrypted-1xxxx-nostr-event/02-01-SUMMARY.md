@@ -139,6 +139,15 @@ None. `prettier --write` reformatted `tests/helpers/preferences.test.ts` (wrappi
 - Plan 02 (SIGNER_PERMISSIONS expansion + wiring) and Plan 03 (services/preferences.ts RxJS wiring) can now import `helpers/preferences.ts`'s full symbol set with confidence in its exact JSON contract and edge-case behavior
 - The interop read path (`applesauce-common/helpers/app-data`) is confirmed compatible with the D2-03 manual write path — Plan 03 can use either the manual path or the `EventFactory` builder alternative without re-verifying the encryption/decryption round-trip
 
+## Self-Check: PASSED
+
+- FOUND: helpers/preferences.ts
+- FOUND: tests/helpers/preferences.test.ts
+- FOUND: .planning/phases/02-save-notification-preferences-as-encrypted-1xxxx-nostr-event/02-01-SUMMARY.md
+- FOUND commit: 1f4a05e (test)
+- FOUND commit: 93bb4a2 (feat)
+- FOUND commit: 7b7c24b (docs)
+
 ---
 *Phase: 02-save-notification-preferences-as-encrypted-1xxxx-nostr-event*
 *Plan: 01*
