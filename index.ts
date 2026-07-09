@@ -12,6 +12,8 @@ import groupsRoute from "./pages/groups";
 
 // Start listening for notifications
 import "./notifications";
+// Start the notification-preferences sync service
+import "./services/preferences";
 
 const server = serve({
   port: process.env.PORT ? parseInt(process.env.PORT) : 8080,
