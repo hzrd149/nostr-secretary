@@ -5,7 +5,7 @@ import type { BunRequest } from "bun";
 import { BehaviorSubject } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import { DEFAULT_SIGNER_RELAY } from "../const";
+import { DEFAULT_SIGNER_RELAY, SIGNER_PERMISSIONS } from "../const";
 import config$, { getConfig, updateConfig } from "../services/config";
 import { log } from "../services/logs";
 import { pool, signer$ } from "../services/nostr";
@@ -32,8 +32,9 @@ function SetupPage() {
   // Generate QR code URL using qr-server.com (same as home.tsx)
   const connectUrl = signer.getNostrConnectURI({
     name: "Nostr Secretary",
+    permissions: SIGNER_PERMISSIONS,
   });
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(signer.getNostrConnectURI())}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(connectUrl)}`;
 
   return (
     <>
@@ -311,6 +312,7 @@ const route = {
           // Create signer from bunker URI
           const signer = await NostrConnectSigner.fromBunkerURI(
             bunkerUri.trim(),
+            { permissions: SIGNER_PERMISSIONS },
           );
 
           // Test the connection by getting the public key

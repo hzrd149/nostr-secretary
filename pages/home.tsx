@@ -5,7 +5,7 @@ import { NostrConnectSigner } from "applesauce-signers";
 import type { BunRequest } from "bun";
 import { BehaviorSubject, firstValueFrom } from "rxjs";
 import Document from "../components/Document";
-import { DEFAULT_SIGNER_RELAY } from "../const";
+import { DEFAULT_SIGNER_RELAY, SIGNER_PERMISSIONS } from "../const";
 import * as messagesNotification from "../notifications/messages";
 import * as repliesNotification from "../notifications/replies";
 import * as zapsNotification from "../notifications/zaps";
@@ -255,8 +255,9 @@ function SetupComponent() {
   // Generate QR code URL using qr-server.com (same as mobile.tsx)
   const connectUrl = signer.getNostrConnectURI({
     name: "Nostr Secretary",
+    permissions: SIGNER_PERMISSIONS,
   });
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(signer.getNostrConnectURI())}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(connectUrl)}`;
 
   return (
     <>
