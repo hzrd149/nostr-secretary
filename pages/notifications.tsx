@@ -7,6 +7,7 @@ import * as zapsNotification from "../notifications/zaps";
 import * as groupsNotification from "../notifications/groups";
 import config$ from "../services/config";
 import { summarizeGroupModes } from "../helpers/groups";
+import { enabled$ as prefsSyncEnabled$ } from "../services/preferences";
 
 const notificationStyles = `
   .notifications-container {
@@ -150,6 +151,32 @@ const notificationStyles = `
     color: #6c757d;
     text-transform: uppercase;
     font-weight: 500;
+  }
+
+  .sync-hint {
+    padding: 1rem 1.5rem;
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 8px;
+    color: #856404;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .sync-hint a {
+    font-weight: 600;
+    color: #856404;
+    text-decoration: underline;
+  }
+
+  .sync-hint.sync-enabled {
+    background: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+  }
+
+  .sync-hint.sync-enabled a {
+    color: #155724;
   }
 
   @media (max-width: 768px) {
@@ -332,6 +359,28 @@ async function NotificationsList() {
   );
 }
 
+async function SyncStatusHint() {
+  const syncEnabled = await firstValueFrom(prefsSyncEnabled$).catch(
+    () => false,
+  );
+
+  if (syncEnabled) {
+    return (
+      <div class="sync-hint sync-enabled">
+        Settings sync is enabled — your notification settings are synced
+        across devices.
+      </div>
+    );
+  }
+
+  return (
+    <div class="sync-hint">
+      Connect a signer to sync your settings across devices.{" "}
+      <a href="/signer">Connect a signer</a>
+    </div>
+  );
+}
+
 export async function NotificationsView() {
   return (
     <Document title="Notifications">
@@ -340,6 +389,7 @@ export async function NotificationsView() {
         subtitle="Configure how you receive notifications for different Nostr events"
       >
         <div class="notifications-container">
+          <SyncStatusHint />
           <NotificationOverview />
           <NotificationsList />
 
