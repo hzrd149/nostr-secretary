@@ -115,3 +115,7 @@ None - no external service configuration required.
 ---
 *Phase: 02-save-notification-preferences-as-encrypted-1xxxx-nostr-event*
 *Completed: 2026-07-09*
+
+## Self-Check: PASSED
+
+All created/modified files verified present on disk; all four commit hashes (c17327c, 6f3fea0, 955f985, ba55db5) verified present in git log.
