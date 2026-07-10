@@ -98,6 +98,9 @@ Items acknowledged and carried forward from previous milestone close:
 | 01 | verification_deferred_human | /gsd-verify-work 1 |
 | 02 | verification_deferred_human | /gsd-verify-work 2 |
 | 03 | verification_deferred_human | /gsd-verify-work 3 |
+| 04 | verification_deferred_human | /gsd-verify-work 4 |
+
+Phase 04 is code-complete (2/2 plans; all 9 D4 must-haves code-verified; 77/77 tests pass, lint clean; code-reviewed + auto-fixed over 2 iterations — a critical mass-re-notification-on-seed-failure bug and a follow-on notification-blackout bug were both caught and fixed with a self-healing unbounded-retry seed). The giftWraps$ limit:1/skip(1) fragility (D4-02) is replaced. One UAT check requires a live NIP-46 signer + real DM relays (gift-wrapped DM decrypts once, not re-notified on restart, self-heals after a relay hiccup) and was deferred during the autonomous run on 2026-07-10 to keep building phases 5–7. Resume with `/gsd-verify-work 4` when a signer is available.
 
 Phase 03 is code-complete (3/3 plans; all 10 D3 must-haves code-verified; 68/68 tests pass, lint clean; code-reviewed + auto-fixed over 2 iterations to clean; one D3-10 scope gap resolved inline). Two UAT checks require a live NIP-46 signer/bunker session (fresh-connect kind-4 DM decrypt round trip + reconnect-hint appear/clear cycle) and were deferred during the autonomous run on 2026-07-09 to keep building phases 4–7. Resume with `/gsd-verify-work 3` when a signer is available.
 
