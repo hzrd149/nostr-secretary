@@ -122,9 +122,15 @@ enabledSigner
 
           return from(
             (async () => {
+              // A profile-lookup failure (e.g. getValue's 5s timeout when
+              // the sender's kind-0 hasn't loaded yet) is NOT a decrypt
+              // failure -- swallow it here so the shared catchError below
+              // only ever fires for an actual unlockLegacyMessage failure
+              // (WR-01). Fall back to an undefined profile rather than
+              // failing the whole pipeline.
               const profile = await getValue(
                 eventStore.profile(sender).pipe(defined()),
-              );
+              ).catch(() => undefined);
 
               log("Unlocking legacy message", {
                 event: event.id,
@@ -132,6 +138,9 @@ enabledSigner
                 signer: signer.pubkey,
               });
 
+              // Only this throw should flip nip04DecryptDegraded$ -- it's
+              // the sole await left in this IIFE after the profile lookup
+              // above absorbed its own failures.
               const content = await unlockLegacyMessage(event, pubkey, signer);
               if (!content) return undefined;
 
@@ -150,6 +159,8 @@ enabledSigner
               // D3-07: any NIP-04 decrypt failure while connected is
               // reconnect-hint-worthy (no standardized NIP-46
               // permission-denied error code to string-match against).
+              // Profile-lookup failures no longer reach this catchError
+              // (see above), so this only fires for actual decrypt errors.
               nip04DecryptDegraded$.next(true);
               return EMPTY;
             }),
