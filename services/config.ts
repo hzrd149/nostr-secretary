@@ -134,10 +134,15 @@ export function migrateConfig(parsed: any): any {
   }
 
   // Backfill groups.modes for configs written before per-group modes shipped
-  // (D-10, Pitfall 1).
+  // (D-10, Pitfall 1). Normalize a null/non-object top-level `groups` first
+  // (e.g. a hand-edited `"groups": null`) so the modes backfill below can't
+  // be bypassed and leave `groups` itself null (WR-03).
+  if (parsed.groups == null || typeof parsed.groups !== "object") {
+    parsed.groups = {};
+  }
   if (
-    parsed.groups &&
-    (parsed.groups.modes == null || typeof parsed.groups.modes !== "object")
+    parsed.groups.modes == null ||
+    typeof parsed.groups.modes !== "object"
   ) {
     parsed.groups.modes = {};
   }

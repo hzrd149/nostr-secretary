@@ -68,4 +68,16 @@ describe("services/config migrateConfig", () => {
 
     expect(migrated.groups.modes).toEqual({});
   });
+
+  test("normalizes a null top-level groups key to {modes:{}} instead of leaving it null (WR-03)", () => {
+    const migrated = migrateConfig({ groups: null });
+
+    expect(migrated.groups).toEqual({ modes: {} });
+  });
+
+  test("backfills groups to {modes:{}} when groups key is entirely absent (WR-03)", () => {
+    const migrated = migrateConfig({});
+
+    expect(migrated.groups).toEqual({ modes: {} });
+  });
 });
