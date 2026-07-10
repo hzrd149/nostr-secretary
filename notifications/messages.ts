@@ -173,8 +173,25 @@ enabledSigner
 
     const { messages } = getConfig();
 
-    // Check if this sender's category (contacts/others) is enabled (D5-07)
-    const category = classifyDmSender(await isContact(sender));
+    // Check if this sender's category (contacts/others) is enabled (D5-07).
+    // isContact's only guarded rejection is RxJS TimeoutError (via its own
+    // `with` fallback) -- a genuine error from the underlying contacts$
+    // observable would otherwise propagate as an unhandled rejection out of
+    // this async subscribe callback (WR-01). Guard it here, log with
+    // context, and fall back to treating the sender as NOT a contact so
+    // classification degrades to "others" rather than dropping the
+    // notification silently.
+    let isFollowed = false;
+    try {
+      isFollowed = await isContact(sender);
+    } catch (error) {
+      log("Failed to resolve contact status, treating as others", {
+        event: event.id,
+        sender,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    const category = classifyDmSender(isFollowed);
     if (!messages[category].enabled)
       return log("Skipping notification: category disabled", {
         sender,
@@ -240,8 +257,21 @@ enabledSigner
 
     const sender = rumor.pubkey;
 
-    // Check if this sender's category (contacts/others) is enabled (D5-07)
-    const category = classifyDmSender(await isContact(sender));
+    // Check if this sender's category (contacts/others) is enabled (D5-07).
+    // See the NIP-04 listener above for why this must be guarded (WR-01):
+    // isContact only intercepts RxJS TimeoutError itself, so a genuine
+    // contacts$ error would otherwise become an unhandled rejection here.
+    let isFollowed = false;
+    try {
+      isFollowed = await isContact(sender);
+    } catch (error) {
+      log("Failed to resolve contact status, treating as others", {
+        event: rumor.id,
+        sender,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    const category = classifyDmSender(isFollowed);
     if (!messages[category].enabled)
       return log("Skipping notification: category disabled", {
         sender,
