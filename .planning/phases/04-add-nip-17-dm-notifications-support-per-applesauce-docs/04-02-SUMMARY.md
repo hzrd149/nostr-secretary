@@ -137,3 +137,12 @@ None - no external service configuration required.
 ---
 *Phase: 04-add-nip-17-dm-notifications-support-per-applesauce-docs*
 *Completed: 2026-07-10*
+
+## Self-Check: PASSED
+
+- FOUND: services/nostr.ts
+- FOUND: notifications/messages.ts
+- FOUND: .planning/phases/04-add-nip-17-dm-notifications-support-per-applesauce-docs/04-02-SUMMARY.md
+- FOUND commit: 2e70a50
+- FOUND commit: 0b67a7a
+- FOUND commit: a2b17b6
