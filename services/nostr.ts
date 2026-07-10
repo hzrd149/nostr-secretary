@@ -238,20 +238,36 @@ export const giftWraps$ = combineLatest([
       reconnect: Infinity,
     });
 
-    // CR-01: a seed failure (timeout/relay error) must NEVER fall through
-    // to `live$` with an empty `seen` set -- `live$` is a fresh REQ and
-    // will resend the entire matching history (Pitfall 1, no `since`
-    // filter since NIP-59 randomizes `created_at`), which would otherwise
-    // re-notify every historical gift-wrapped DM. `seededGiftWraps` retries
-    // the seed with backoff, logs on final failure (WR-03), and fails
-    // closed (suppresses this cycle's notifications entirely) rather than
-    // risking a mass re-notification storm.
+    // CR-01 (iteration 2): a seed failure (timeout/relay error) must
+    // never fall through to `live$` with an empty `seen` set -- `live$`
+    // is a fresh REQ and will resend the entire matching history
+    // (Pitfall 1, no `since` filter since NIP-59 randomizes `created_at`)
+    // -- but it also must never PERMANENTLY blackout notifications for
+    // the rest of the session on a merely transient failure. `live$`'s
+    // `reconnect: Infinity` reconnects at the WebSocket layer without
+    // this switchMap re-firing, so an iteration-1-style "fail closed
+    // forever until the next switchMap re-subscribe" design can silently
+    // stop notifying about new DMs indefinitely after a single relay
+    // hiccup. `seededGiftWraps` instead retries the seed forever with
+    // capped exponential backoff and only starts notifying once a seed
+    // attempt actually succeeds, so a transient failure just delays
+    // notifications until the seed recovers, and the pipeline self-heals
+    // with no dependence on this switchMap re-firing.
     return seededGiftWraps(seedRequest$, live$, {
-      onSeedFailure: (error) =>
-        log(
-          "Gift wrap seed request failed after retries -- suppressing live gift-wrap notifications until the next resubscribe to avoid mass re-notification of historical DMs",
-          { error: error instanceof Error ? error.message : String(error) },
-        ),
+      onSeedFailure: (error, attempt) => {
+        // Throttle: always log the first failure, then only every 5th
+        // attempt after that, so a persistently unreachable relay
+        // doesn't spam the log once per backoff interval forever.
+        if (attempt === 1 || attempt % 5 === 0) {
+          log(
+            "Gift wrap seed request failed -- retrying with backoff; live gift-wrap notifications are suppressed until a seed attempt succeeds",
+            {
+              error: error instanceof Error ? error.message : String(error),
+              attempt,
+            },
+          );
+        }
+      },
     });
   }),
   mapEventsToStore(eventStore),

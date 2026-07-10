@@ -1,13 +1,12 @@
 import type { NostrEvent } from "nostr-tools";
 import {
-  catchError,
   concat,
-  EMPTY,
   filter,
   ignoreElements,
   Observable,
   retry,
   tap,
+  timer,
 } from "rxjs";
 
 /** Default cap on the `seen` id set (WR-01). Bounds memory growth for a
@@ -77,33 +76,58 @@ export function notifyNewGiftWraps(
 }
 
 export interface SeededGiftWrapsOptions {
-  /** Max seed retry attempts before failing closed (CR-01). Default 2. */
-  retryCount?: number;
-  /** Delay between seed retries in ms. Default 2_000. */
+  /** Base delay before the first seed retry, in ms. Each subsequent
+   *  failed attempt doubles this (real exponential backoff, capped by
+   *  `maxRetryDelay`) -- see IN-01. Default 2_000. */
   retryDelay?: number;
-  /** Called with the error if the seed ultimately fails after retries --
-   *  callers should log here (WR-03). */
-  onSeedFailure?: (error: unknown) => void;
+  /** Upper bound on the exponential backoff delay between seed retries,
+   *  in ms. Default 60_000. */
+  maxRetryDelay?: number;
+  /** Called on EVERY failed seed attempt, with the underlying error and
+   *  the 1-based attempt number. Retries are UNBOUNDED -- the seed keeps
+   *  retrying forever with capped exponential backoff until it succeeds
+   *  (CR-01, iteration 2), so this can fire repeatedly for as long as a
+   *  DM relay stays down. Callers that log here should throttle by
+   *  `attempt` to avoid log spam. */
+  onSeedFailure?: (error: unknown, attempt: number) => void;
   /** Forwarded to `notifyNewGiftWraps`'s `seen` cap (WR-01). */
   maxSeen?: number;
 }
 
 /**
  * Wraps a raw, unguarded seed request observable (e.g. `pool.request(...)`,
- * which throws/errors on relay timeout) with retry-with-backoff, then
- * composes it with `live$` via `notifyNewGiftWraps` -- but with a critical
- * difference from a bare `seedRequest$.pipe(catchError(() => EMPTY))`:
- * if the seed *still* fails after retrying, this fails CLOSED rather than
- * falling through to `live$` with an empty `seen` set.
+ * which throws/errors on relay timeout) with UNBOUNDED retry and capped
+ * exponential backoff, then composes it with `live$` via
+ * `notifyNewGiftWraps` -- but with a critical difference from a bare
+ * `seedRequest$.pipe(catchError(() => EMPTY))`: nothing from `live$`
+ * (including its un-deduped historical backlog burst, Pitfall 1) reaches
+ * downstream subscribers until a seed attempt has actually SUCCEEDED.
  *
- * Failing closed means: no gift wrap is emitted for the remainder of this
- * subscription (until the caller's upstream `switchMap` re-subscribes,
- * e.g. on `messageInboxes$` changing). This trades "occasionally misses
- * live notifications after a persistently failing seed" for "never mass
- * re-notifies the entire historical DM backlog" -- the exact regression
- * CR-01 flagged, since `live$` (a fresh REQ) resends the full matching
- * history on open (Pitfall 1) and NIP-59 randomizes `created_at` so there
- * is no `since` filter to fall back on.
+ * This is iteration 2 of the CR-01 fix. Iteration 1 retried a bounded
+ * number of times and, on final failure, permanently latched a
+ * `seedFailed` flag for the life of the subscription. That flag was only
+ * ever reset by the caller's upstream `switchMap` re-subscribing (e.g. on
+ * `messageInboxes$` changing) -- a condition with no relation to "the
+ * relay/network issue that caused the seed failure resolved." A single
+ * transient seed failure could therefore permanently blackout NIP-17 DM
+ * notifications for the rest of the session, even after every DM relay
+ * recovered. Iteration 2 fixes this by:
+ *
+ * 1. Retrying the seed forever (no `catchError`/give-up path) with capped
+ *    exponential backoff, instead of giving up after a fixed count.
+ * 2. Gating emission on "has a seed EVER succeeded" (`seeded`, latched
+ *    `false -> true` exactly once) rather than "has a seed NOT yet
+ *    failed" -- so the pipeline self-heals the instant a retry succeeds,
+ *    with no dependence on the outer `switchMap` re-firing.
+ *
+ * Properties preserved:
+ * - No mass re-notification: everything from `live$` stays suppressed
+ *   for as long as every seed attempt keeps failing, since `seen` is
+ *   only ever populated by a *successful* seed.
+ * - Conservative degradation: if every configured DM relay is down, no
+ *   NIP-17 notifications fire at all (acceptable -- the relays can't be
+ *   read anyway), and notifications resume automatically the moment
+ *   relays recover and a retry succeeds.
  */
 export function seededGiftWraps(
   seedRequest$: Observable<NostrEvent>,
@@ -111,26 +135,45 @@ export function seededGiftWraps(
   options: SeededGiftWrapsOptions = {},
 ): Observable<NostrEvent> {
   const {
-    retryCount = 2,
     retryDelay = 2_000,
+    maxRetryDelay = 60_000,
     onSeedFailure,
     maxSeen,
   } = options;
 
-  let seedFailed = false;
+  // Flips to `true` exactly once, only when a seed attempt actually
+  // completes successfully (the `tap({ complete })` below only fires on
+  // normal completion, never on error -- a failed attempt errors, it
+  // never completes). There is deliberately no `catchError` in this
+  // pipe: a failing attempt falls straight into `retry`'s unbounded
+  // resubscription instead of ever terminating the seed.
+  let seeded = false;
   const seed$ = seedRequest$.pipe(
-    retry({ count: retryCount, delay: retryDelay }),
-    catchError((error) => {
-      seedFailed = true;
-      onSeedFailure?.(error);
-      return EMPTY;
+    tap({
+      complete: () => {
+        seeded = true;
+      },
+    }),
+    retry({
+      delay: (error, retryAttempt) => {
+        onSeedFailure?.(error, retryAttempt);
+        const backoff = Math.min(
+          retryDelay * 2 ** (retryAttempt - 1),
+          maxRetryDelay,
+        );
+        return timer(backoff);
+      },
     }),
   );
 
   return notifyNewGiftWraps(seed$, live$, undefined, maxSeen).pipe(
-    // Fail closed (CR-01): once the seed has definitively failed, never
-    // let anything from live$ (including its un-deduped backlog burst)
-    // reach downstream subscribers for the rest of this subscription.
-    filter(() => !seedFailed),
+    // Fail closed until the seed succeeds: suppress everything from
+    // live$ (including its un-deduped backlog burst, Pitfall 1) until
+    // `seeded` flips true. `notifyNewGiftWraps`'s `concat` never
+    // resubscribes to `seed$` after it completes, so `seeded` goes
+    // false -> true at most once per subscription and then stays true --
+    // self-healing the moment a seed attempt succeeds, and requiring no
+    // signal from the caller's upstream switchMap.
+    filter(() => seeded),
   );
 }

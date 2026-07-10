@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { defer, of, Subject, throwError } from "rxjs";
+import { defer, of, Subject, tap, throwError } from "rxjs";
 import type { NostrEvent } from "nostr-tools";
 import {
   notifyNewGiftWraps,
@@ -109,61 +109,83 @@ describe("notifyNewGiftWraps (D4-02 contract)", () => {
   });
 });
 
-describe("seededGiftWraps (CR-01 fail-closed seed contract)", () => {
-  test("if the seed request errors (even after retries), live$'s backlog burst is NOT emitted -- no mass re-notification", () => {
+describe("seededGiftWraps (CR-01 fail-closed seed contract, iteration 2: self-healing)", () => {
+  test("while the seed keeps failing, live$'s backlog burst is NOT emitted -- no mass re-notification", () => {
     const historical = fakeEvent("historical-id");
+    // Never succeeds within this test -- retries are unbounded, so we
+    // just assert the suppression holds for as long as it keeps failing.
     const seedRequest$ = throwError(() => new Error("seed timeout"));
     const live$ = new Subject<NostrEvent>();
 
-    let failureLogged: unknown;
+    const failures: unknown[] = [];
     const emitted: NostrEvent[] = [];
     seededGiftWraps(seedRequest$, live$, {
-      retryCount: 0,
       retryDelay: 0,
-      onSeedFailure: (error) => (failureLogged = error),
+      maxRetryDelay: 0,
+      onSeedFailure: (error) => failures.push(error),
     }).subscribe((e) => emitted.push(e));
 
     // Simulate the relay resending the entire historical backlog on the
-    // fresh live$ REQ (Pitfall 1) -- this must NOT reach subscribers.
+    // fresh live$ REQ (Pitfall 1) -- this must NOT reach subscribers,
+    // since the seed has never succeeded (concat hasn't even subscribed
+    // to live$ yet -- it's still waiting on seed$ to complete).
     live$.next(historical);
 
     expect(emitted).toEqual([]);
-    expect(failureLogged).toBeInstanceOf(Error);
-    expect((failureLogged as Error).message).toBe("seed timeout");
+    expect(failures.length).toBeGreaterThanOrEqual(1);
+    expect((failures[0] as Error).message).toBe("seed timeout");
   });
 
-  test("a seed that fails transiently but recovers within the retry budget still dedups the backlog normally", async () => {
+  test("after repeated seed failures, a later success does NOT mass-notify the backlog AND live notifications resume -- self-healing", async () => {
     const historical = fakeEvent("historical-id");
+    const FAILURES_BEFORE_SUCCESS = 4;
     let attempts = 0;
+
+    // Resolves the instant the seed actually succeeds, instead of
+    // guessing a wall-clock delay long enough for N retries to settle
+    // (see IN-02) -- this makes the test deterministic regardless of CI
+    // load or scheduler timing.
+    let resolveSeeded!: () => void;
+    const seeded = new Promise<void>((resolve) => {
+      resolveSeeded = resolve;
+    });
     const seedRequest$ = defer(() => {
       attempts++;
-      // Fail the first 2 attempts, succeed on the 3rd (within retryCount: 2).
-      if (attempts < 3) return throwError(() => new Error("transient"));
-      return of(historical);
+      if (attempts <= FAILURES_BEFORE_SUCCESS) {
+        return throwError(() => new Error(`transient #${attempts}`));
+      }
+      return of(historical).pipe(tap({ complete: () => resolveSeeded() }));
     });
     const live$ = new Subject<NostrEvent>();
 
-    let failureLogged = false;
+    const failedAttempts: number[] = [];
     const emitted: NostrEvent[] = [];
     seededGiftWraps(seedRequest$, live$, {
-      retryCount: 2,
+      // delay: 0 keeps this test fast; it exercises the retry/backoff
+      // wiring (attempt count, onSeedFailure), not the actual delay math.
       retryDelay: 0,
-      onSeedFailure: () => (failureLogged = true),
+      maxRetryDelay: 0,
+      onSeedFailure: (_error, attempt) => failedAttempts.push(attempt),
     }).subscribe((e) => emitted.push(e));
 
-    // retry({ delay }) schedules re-subscription via an async timer even
-    // with delay: 0, so wait a tick for both retries (and concat's
-    // subscription to live$) to settle before driving live$.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // While the seed is still retrying, live$'s resent backlog burst
+    // must not reach subscribers (no mass re-notification).
+    live$.next(historical);
+    expect(emitted).toEqual([]);
 
-    // Historical wrap was seeded successfully via retry -- a live resend
-    // must be deduped as usual, and a genuinely new wrap must still emit.
+    await seeded;
+
+    // The seed has now succeeded and `seen` has been populated from it;
+    // a resend of the same historical wrap must stay deduped, but a
+    // genuinely new wrap must be notified -- proving live notifications
+    // resumed automatically (self-healing), with no dependence on the
+    // outer switchMap re-firing.
     const brandNew = fakeEvent("new-id");
     live$.next(historical);
     live$.next(brandNew);
 
     expect(emitted).toEqual([brandNew]);
-    expect(failureLogged).toBe(false);
-    expect(attempts).toBe(3);
+    expect(failedAttempts).toEqual([1, 2, 3, 4]);
+    expect(attempts).toBe(FAILURES_BEFORE_SUCCESS + 1);
   });
 });
