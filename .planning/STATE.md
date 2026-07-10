@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 05
-current_phase_name: dm-notifications-split-contacts-and-others-categories
+current_phase: 06
+current_phase_name: notification-rate-limiting-per-type-and-global-with-grouped
 status: executing
 stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-07-10T21:08:18.764Z"
+last_updated: "2026-07-10T21:08:36.041Z"
 last_activity: 2026-07-10
-last_activity_desc: Phase 05 execution started
+last_activity_desc: Phase 06 execution started
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 14
-  percent: 57
+  completed_phases: 5
+  total_plans: 21
+  completed_plans: 17
+  percent: 71
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/ROADMAP.md (no PROJECT.md for this project)
 
 **Core value:** Per-group and per-type notification control for a Nostr notification secretary.
-**Current focus:** Phase 05 — dm-notifications-split-contacts-and-others-categories
+**Current focus:** Phase 06 — notification-rate-limiting-per-type-and-global-with-grouped
 
 ## Current Position
 
-Phase: 05 (dm-notifications-split-contacts-and-others-categories) — EXECUTING
-Plan: 1 of 3
-Status: Ready to execute
-Last activity: 2026-07-10 — Phase 05 execution started
+Phase: 06 (notification-rate-limiting-per-type-and-global-with-grouped) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 06
+Last activity: 2026-07-10 — Phase 06 execution started
 
 Progress: [██████████] 100%
 
