@@ -103,15 +103,30 @@ function writeConfig(config: AppConfig) {
   return configWrite;
 }
 
-// Read config file if set from env
-if (await fs.exists(CONFIG_PATH)) {
-  const parsed = JSON.parse(await fs.readFile(CONFIG_PATH, "utf-8"));
-
+/**
+ * One-time legacy-config migration, applied to a freshly-parsed config.json
+ * before it is merged into config$. Pure function of its input -- no I/O, no
+ * config$ access -- so it is unit-testable in isolation (D3-09).
+ *
+ * Applies two migrations:
+ * 1. Reshapes the old `directMessageNotifications` boolean field into the
+ *    `messages` object. `messages.sendContent` is forced to `false`
+ *    unconditionally (D3-04) -- an upgrading user must never be silently
+ *    opted into forwarding decrypted DM plaintext to the ntfy server, even
+ *    if they previously had DM notifications enabled.
+ * 2. Backfills `groups.modes` for configs written before per-group modes
+ *    shipped (Phase 1 D-10, Pitfall 1). Guards against the documented legacy
+ *    shape (key absent) as well as other invalid persisted shapes -- `null`
+ *    (valid JSON, plausible from a hand-edited config.json) or any
+ *    non-object value -- since getGroupMode/passesGroupModeGate/MODE_BADGE
+ *    all assume an object to index into (WR-02).
+ */
+export function migrateConfig(parsed: any): any {
   // Migrate old directMessageNotifications field to new messages structure
   if (parsed.directMessageNotifications !== undefined && !parsed.messages) {
     parsed.messages = {
       enabled: parsed.directMessageNotifications,
-      sendContent: parsed.directMessageNotifications, // Default to same value
+      sendContent: false, // D3-04: never inherit the legacy value -- explicit opt-in only
       whitelists: [],
       blacklists: [],
     };
@@ -119,17 +134,22 @@ if (await fs.exists(CONFIG_PATH)) {
   }
 
   // Backfill groups.modes for configs written before per-group modes shipped
-  // (D-10, Pitfall 1). Guards against the documented legacy shape (key
-  // absent) as well as other invalid persisted shapes -- `null` (valid JSON,
-  // plausible from a hand-edited config.json) or any non-object value --
-  // since getGroupMode/passesGroupModeGate/MODE_BADGE all assume an object
-  // to index into (WR-02).
+  // (D-10, Pitfall 1).
   if (
     parsed.groups &&
     (parsed.groups.modes == null || typeof parsed.groups.modes !== "object")
   ) {
     parsed.groups.modes = {};
   }
+
+  return parsed;
+}
+
+// Read config file if set from env
+if (await fs.exists(CONFIG_PATH)) {
+  const parsed = migrateConfig(
+    JSON.parse(await fs.readFile(CONFIG_PATH, "utf-8")),
+  );
 
   config$.next({ ...config$.value, ...parsed });
   loaded = true;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import config$, { getConfig } from "../../services/config";
+import config$, { getConfig, migrateConfig } from "../../services/config";
 
 // services/config.ts reads Bun.env.CONFIG at import time (top-level await
 // fs.exists(CONFIG_PATH)), and Bun shares one module cache across every file
@@ -39,5 +39,33 @@ describe("services/config groups.modes", () => {
     });
 
     expect(getConfig().groups.modes[key]).toBe("muted");
+  });
+});
+
+// migrateConfig is a pure function -- these cases call it directly on plain
+// legacy-shaped objects and never touch config$.next(), so they do not
+// perturb the shared config singleton the describe block above depends on
+// (D3-09).
+describe("services/config migrateConfig", () => {
+  test("legacy directMessageNotifications:true migrates to messages.enabled:true and messages.sendContent:false (D3-04)", () => {
+    const migrated = migrateConfig({ directMessageNotifications: true });
+
+    expect(migrated.messages.enabled).toBe(true);
+    expect(migrated.messages.sendContent).toBe(false);
+  });
+
+  test("legacy directMessageNotifications:false also yields messages.sendContent:false (default is unconditional) (D3-04)", () => {
+    const migrated = migrateConfig({ directMessageNotifications: false });
+
+    expect(migrated.messages.enabled).toBe(false);
+    expect(migrated.messages.sendContent).toBe(false);
+  });
+
+  test("backfills groups.modes to {} when groups has no modes key (D3-10/D-10 parity)", () => {
+    const migrated = migrateConfig({
+      groups: { enabled: true, whitelists: [], blacklists: [] },
+    });
+
+    expect(migrated.groups.modes).toEqual({});
   });
 });
