@@ -86,9 +86,13 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 05-01-PLAN.md — Reactive no-signer contacts$/isContact + pure classifyDmSender unit (Wave 1)
 - [ ] 05-02-PLAN.md — messages config schema cutover: per-category enable + migration + defaults + kind-30078 sync + two-section /messages UI (Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 05-03-PLAN.md — Layered per-category enable gate in both NIP-04/NIP-17 DM listeners + truth-table test (Wave 2)
 
 ### Phase 6: Notification rate limiting per type and global with grouped overflow
