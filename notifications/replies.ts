@@ -19,7 +19,7 @@ import {
   tagged$,
   whitelist$,
 } from "../services/nostr";
-import { sendNotification } from "../services/ntfy";
+import { rateLimitedNotify } from "../services/rate-limit";
 
 /** Check if a sender should receive notifications based on whitelist/blacklist */
 async function shouldNotify(pubkey: string): Promise<boolean> {
@@ -99,7 +99,7 @@ enabled$
     );
 
     // Send a notification
-    await sendNotification({
+    await rateLimitedNotify("replies", {
       title: `${getDisplayName(profile)} replied to your post`,
       message: event.content,
       icon: getProfilePicture(profile),

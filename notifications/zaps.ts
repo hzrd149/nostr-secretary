@@ -20,7 +20,7 @@ import {
   tagged$,
   whitelist$,
 } from "../services/nostr";
-import { sendNotification } from "../services/ntfy";
+import { rateLimitedNotify } from "../services/rate-limit";
 
 /** Check if a sender should receive notifications based on whitelist/blacklist */
 async function shouldNotify(pubkey: string): Promise<boolean> {
@@ -104,7 +104,7 @@ enabled$
 
     if (!payment?.amount) return log("Zap has no amount", { zap: zap.id });
 
-    await sendNotification({
+    await rateLimitedNotify("zaps", {
       title: "Zap Received",
       message: `${getDisplayName(profile)} zapped you ${payment?.amount / 1000} sats`,
       icon: getProfilePicture(profile),
