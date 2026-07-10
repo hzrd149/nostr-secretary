@@ -131,3 +131,12 @@ None - no external service configuration required. Full end-to-end confirmation 
 ---
 *Phase: 03-review-and-add-nip-04-dm-support-per-applesauce-docs*
 *Completed: 2026-07-09*
+
+## Self-Check: PASSED
+
+- FOUND: const.ts
+- FOUND: tests/const.test.ts
+- FOUND: .planning/phases/03-review-and-add-nip-04-dm-support-per-applesauce-docs/03-01-SUMMARY.md
+- FOUND commit: 98d6837 (test)
+- FOUND commit: c1cadce (feat)
+- FOUND commit: d63bffd (docs — SUMMARY commit)
