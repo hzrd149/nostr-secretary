@@ -100,6 +100,9 @@ Items acknowledged and carried forward from previous milestone close:
 | 03 | verification_deferred_human | /gsd-verify-work 3 |
 | 04 | verification_deferred_human | /gsd-verify-work 4 |
 | 05 | verification_deferred_human | /gsd-verify-work 5 |
+| 06 | verification_deferred_human | /gsd-verify-work 6 |
+
+Phase 06 is code-complete (4/4 plans; all 8 D6 must-haves code-verified; 154/154 tests pass, lint clean; code-reviewed + auto-fixed over 2 iterations — 2 critical bugs fixed: a flush-timer restart-starvation and a `window:0` busy-loop/rate-limiting-disable, the latter clamped at every input surface [config load, migrate, kind-30078 sync, choke point, timer, PATCH]). Notifications now have per-type + global rate limiting with a counts-only grouped-overflow summary; limits configurable + synced; defaults per-type 5/min, global 20/min, window 60s. Three UAT checks require a live burst → grouped summary, and the running per-type + /notifications UI — deferred during the autonomous run on 2026-07-10 to keep building phase 7. Resume with `/gsd-verify-work 6` when a signer/UI is available.
 
 Phase 05 is code-complete (3/3 plans; all D5 must-haves implemented + code-verified; 104/104 tests pass, lint clean; code-reviewed + auto-fixed to clean — a critical malformed-config crash, an unguarded isContact await, and missing gate-order coverage all fixed, incl. a new extracted evaluateDmNotificationGates unit with real behavioral tests). DM notifications now split into contacts (followed) / others (not-followed) with per-category enable, layered before the unchanged shouldNotify, across both NIP-04 and NIP-17; new-install default contacts ON / others OFF (D5-05 corrected). Four UAT checks require a live signer + real follow list + DMs, the running /messages UI, and multi-device sync — deferred during the autonomous run on 2026-07-10 to keep building phases 6–7. Resume with `/gsd-verify-work 5` when a signer/UI is available.
 
