@@ -49,12 +49,18 @@ Plans:
 
 **Goal:** Review current DM handling and add proper NIP-04 DM support, following the recommended implementation approach from the applesauce SDK documentation. Ensure decryption, sending, and subscription flows match applesauce's documented patterns for NIP-04 encrypted direct messages.
 **Depends on:** None
-**Requirements:** TBD
-**Plans:** 0 plans
+**Requirements:** D3-01, D3-02, D3-03, D3-04, D3-05, D3-06, D3-07, D3-08, D3-09, D3-10 (decisions in 03-CONTEXT.md — no formal REQUIREMENTS.md for this project; DM *sending* from the goal is out of scope per D3-03, receive-only app)
+**Plans:** 3 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (plan with /gsd-plan-phase)
+- [ ] 03-01-PLAN.md — Add nip04_decrypt to SIGNER_PERMISSIONS + tests (the one true bug, D3-02/D3-03)
+- [ ] 03-02-PLAN.md — Privacy-safe sendContent migration default + extract migrateConfig + tests (D3-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-03-PLAN.md — NIP-04 listener hardening: catchError parity, reconnect hint, deep-link, dead-import cleanup + tests (D3-05..D3-10)
 
 ### Phase 4: Add NIP-17 DM notifications support per applesauce docs
 
