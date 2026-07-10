@@ -25,6 +25,7 @@ import { loadLists } from "../helpers/lists";
 import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
+import { classifyDmSender } from "./dm-category";
 import { unlockPrivateDirectMessage } from "./gift-wrap-messages";
 import {
   decryptLegacyDirectMessage,
@@ -34,6 +35,7 @@ import {
   blacklist$,
   eventStore,
   giftWraps$,
+  isContact,
   isMuted,
   messageInboxes$,
   signer$,
@@ -169,6 +171,16 @@ enabledSigner
   .subscribe(async ({ sender, profile, content, event }) => {
     if (!content) return;
 
+    const { messages } = getConfig();
+
+    // Check if this sender's category (contacts/others) is enabled (D5-07)
+    const category = classifyDmSender(await isContact(sender));
+    if (!messages[category].enabled)
+      return log("Skipping notification: category disabled", {
+        sender,
+        category,
+      });
+
     // Check if we should notify for this sender
     if (!(await shouldNotify(sender)))
       return log(
@@ -176,7 +188,6 @@ enabledSigner
         { sender },
       );
 
-    const { messages } = getConfig();
     // Use the shared fallback-aware helper (WR-01): `profile` may be
     // `undefined` here on purpose (a swallowed profile-lookup timeout), and
     // getDisplayName(profile) alone has no npub fallback for a bare
@@ -228,6 +239,14 @@ enabledSigner
     if (!pubkey) return;
 
     const sender = rumor.pubkey;
+
+    // Check if this sender's category (contacts/others) is enabled (D5-07)
+    const category = classifyDmSender(await isContact(sender));
+    if (!messages[category].enabled)
+      return log("Skipping notification: category disabled", {
+        sender,
+        category,
+      });
 
     // Check if we should notify for this sender
     if (!(await shouldNotify(sender)))
