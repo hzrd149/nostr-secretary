@@ -108,6 +108,25 @@ export function MessagesConfigView() {
           </div>
         </div>
 
+        <div class="form-group">
+          <label
+            for="rateLimitPerType"
+            style="font-weight: bold; margin-bottom: 8px; display: block;"
+          >
+            Rate Limit
+          </label>
+          <input
+            type="number"
+            id="rateLimitPerType"
+            data-bind="rateLimitPerType"
+            min="0"
+            value={String(currentConfig.rateLimit.perType.messages)}
+          />
+          <div class="help-text">
+            Max message notifications per window. 0 = unlimited.
+          </div>
+        </div>
+
         <WhitelistBlacklist
           whitelists={messagesConfig.whitelists}
           blacklists={messagesConfig.blacklists}
@@ -153,6 +172,7 @@ const route = {
       const sendContent = signals.sendContent as boolean;
       const whitelistsText = signals.whitelists as string;
       const blacklistsText = signals.blacklists as string;
+      const rawRateLimitPerType = Number(signals.rateLimitPerType);
 
       try {
         // Parse whitelists and blacklists from textarea (one per line)
@@ -172,6 +192,15 @@ const route = {
 
         // Update config
         const currentConfig = config$.getValue();
+
+        // ASVS V5: clamp the incoming rate-limit signal to a non-negative
+        // integer (finite >= 0, floor floats) before merging -- never trust
+        // an untrusted client-submitted number verbatim.
+        const rateLimitPerType =
+          Number.isFinite(rawRateLimitPerType) && rawRateLimitPerType >= 0
+            ? Math.floor(rawRateLimitPerType)
+            : currentConfig.rateLimit.perType.messages;
+
         const newConfig = {
           ...currentConfig,
           messages: {
@@ -180,6 +209,13 @@ const route = {
             sendContent: !!sendContent,
             whitelists,
             blacklists,
+          },
+          rateLimit: {
+            ...currentConfig.rateLimit,
+            perType: {
+              ...currentConfig.rateLimit.perType,
+              messages: rateLimitPerType,
+            },
           },
         };
 
