@@ -67,12 +67,12 @@ Plans:
 **Goal:** Add support for NIP-17 (Gift-wrapped Direct Messages) DM notifications, following the recommended implementation approach from the applesauce SDK documentation. Ensure the notification server subscribes to NIP-17 wrapped DM events, decrypts them via applesauce's documented patterns, and fires notifications for new DMs.
 **Depends on:** Phase 3
 **Requirements:** D4-01, D4-02, D4-03, D4-04, D4-05, D4-06, D4-07, D4-08, D4-09 (decisions in 04-CONTEXT.md — no formal REQUIREMENTS.md for this project; review/harden phase)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Pure NIP-17 units + tests: notifyNewGiftWraps dedup combinator (D4-02) + unlockPrivateDirectMessage unwrap/classify (D4-01/D4-09) (Wave 1)
+- [x] 04-01-PLAN.md — Pure NIP-17 units + tests: notifyNewGiftWraps dedup combinator (D4-02) + unlockPrivateDirectMessage unwrap/classify (D4-01/D4-09) (Wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
