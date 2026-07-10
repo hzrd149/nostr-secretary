@@ -1,11 +1,10 @@
 import { defined } from "applesauce-core";
-import { getDisplayName, getProfilePicture } from "applesauce-core/helpers";
+import { getProfilePicture } from "applesauce-core/helpers";
 import {
   getLegacyMessageReceiver,
-  unlockGiftWrap,
   unlockLegacyMessage,
 } from "applesauce-common/helpers";
-import { kinds } from "nostr-tools";
+import { kinds, type NostrEvent } from "nostr-tools";
 import {
   BehaviorSubject,
   catchError,
@@ -26,6 +25,7 @@ import { loadLists } from "../helpers/lists";
 import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
+import { unlockPrivateDirectMessage } from "./gift-wrap-messages";
 import {
   decryptLegacyDirectMessage,
   getMessageDisplayName,
@@ -197,28 +197,31 @@ enabledSigner
     // Switch to listening for gift wraps
     switchMap((signer) =>
       giftWraps$.pipe(
-        // Get the rumor from the gift wrap
+        // Unwrap the gift wrap and classify the rumor
         mergeMap((event) => {
           log("Unlocking gift wrap", {
             event: event.id,
             signer: signer.pubkey,
           });
 
-          return from(unlockGiftWrap(event, signer)).pipe(
+          return from(unlockPrivateDirectMessage(event, signer)).pipe(
             catchError((error) => {
               log("Failed to unlock gift wrap", {
                 event: event.id,
                 signer: signer.pubkey,
-                error: Reflect.get(error, "message") || "Unknown error",
+                error: error instanceof Error ? error.message : String(error),
               });
+              // D4-05: deliberately NO reconnect-hint signal here -- a
+              // failed gift-wrap unwrap is common/expected (spam, wraps
+              // not addressed to this key), not permission-shaped.
               return EMPTY;
             }),
           );
         }),
+        // unlockPrivateDirectMessage returns undefined for non-DM rumors
+        defined(),
       ),
     ),
-    // Only look for private direct messages
-    filter((rumor) => rumor.kind === kinds.PrivateDirectMessage),
   )
   .subscribe(async (rumor) => {
     const { pubkey, messages } = getConfig();
@@ -235,13 +238,22 @@ enabledSigner
         },
       );
 
-    const profile = await getValue(eventStore.profile(sender));
+    // A profile-lookup timeout must never throw into this subscribe
+    // callback nor render a literal "undefined" title (parity with the
+    // NIP-04 block's WR-01 fix).
+    const profile = await getValue(eventStore.profile(sender)).catch(
+      () => undefined,
+    );
     const content = rumor.content;
-    const displayName = getDisplayName(profile);
+    const displayName = getMessageDisplayName(profile, sender);
 
     await sendNotification({
       title: `${displayName} sent you a message`,
       message: messages.sendContent ? content : "[content omitted]",
       icon: getProfilePicture(profile),
+      // D4-04: buildOpenLink only reads .id/.kind/.pubkey internally --
+      // safe on the unsigned rumor despite missing `.sig`. Built from the
+      // rumor (real sender), never the gift wrap (random one-time pubkey).
+      click: buildOpenLink(rumor as unknown as NostrEvent),
     });
   });

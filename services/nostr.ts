@@ -25,6 +25,7 @@ import {
 import { onlyEvents } from "applesauce-relay";
 import { kinds } from "nostr-tools";
 import {
+  catchError,
   combineLatest,
   EMPTY,
   filter,
@@ -36,7 +37,6 @@ import {
   ReplaySubject,
   share,
   shareReplay,
-  skip,
   startWith,
   switchMap,
   timeout,
@@ -44,6 +44,7 @@ import {
   toArray,
   type MonoTypeOperatorFunction,
 } from "rxjs";
+import { notifyNewGiftWraps } from "../helpers/gift-wrap-subscription";
 import { loadLists } from "../helpers/lists";
 import config$, { configValue } from "./config";
 import { log } from "./logs";
@@ -149,11 +150,7 @@ combineLatest([signer$, mailboxes$, messageInboxes$, groupRelays$])
       if (!signer) return EMPTY;
 
       return merge(
-        ...mergeRelaySets(
-          mailboxes?.inboxes,
-          messageInboxes,
-          groupRelays,
-        )
+        ...mergeRelaySets(mailboxes?.inboxes, messageInboxes, groupRelays)
           // Get the relays
           .map((url) => pool.relay(url))
           // Create an observable that watches all nessiary state
@@ -213,28 +210,41 @@ export const tagged$ = combineLatest([user$, mailboxes$.pipe(defined())]).pipe(
   share(),
 );
 
-/** An observable of all messages sent to the users direct message relays */
+/** An observable of all messages sent to the users direct message relays.
+ *  Only emits GENUINELY NEW gift wraps -- historical wraps fetched during
+ *  the seed phase (below) are stored but never emitted here (D4-02). */
 export const giftWraps$ = combineLatest([
   // Wait for a user to be defined
   user$,
   // Wait for message inboxes to be defined
   messageInboxes$.pipe(defined()),
 ]).pipe(
-  switchMap(([user, messageInboxes]) =>
-    pool.subscription(
-      messageInboxes,
-      {
-        "#p": [user],
-        // Listen for NIP-17 gift wraps
-        kinds: [kinds.GiftWrap],
-        // Use limit 1 because ts on gift wraps is random
-        limit: 1,
-      },
-      { reconnect: Infinity },
-    ),
-  ),
-  // Skip the first event since we only want new ones
-  skip(1),
+  switchMap(([user, messageInboxes]) => {
+    const giftWrapFilter = {
+      "#p": [user],
+      // Listen for NIP-17 gift wraps
+      kinds: [kinds.GiftWrap],
+    };
+
+    // Seed: one-shot fetch of the current backlog, completes on EOSE
+    // (pool.request's default complete condition). Persisted directly into
+    // the real eventStore; never reaches subscribers of this observable.
+    // A seed failure (timeout/relay error) must not block the live phase
+    // below -- never letting one unresponsive DM relay kill the whole
+    // notification pipeline.
+    const seedRequest$ = pool.request(messageInboxes, giftWrapFilter, {
+      eventStore,
+      timeout: 10_000,
+    });
+    const seed$ = seedRequest$.pipe(catchError(() => EMPTY));
+
+    // Live: persistent subscription, reconnect forever (unchanged shape).
+    const live$ = pool.subscription(messageInboxes, giftWrapFilter, {
+      reconnect: Infinity,
+    });
+
+    return notifyNewGiftWraps(seed$, live$);
+  }),
   mapEventsToStore(eventStore),
   share(),
 );
