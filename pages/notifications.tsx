@@ -381,6 +381,22 @@ async function SyncStatusHint() {
   );
 }
 
+async function DmDecryptHint() {
+  const degraded = await firstValueFrom(
+    messagesNotification.nip04DecryptDegraded$,
+  ).catch(() => false);
+
+  if (!degraded) return "";
+
+  return (
+    <div class="sync-hint">
+      A direct message could not be decrypted. Reconnect your signer to grant
+      DM (NIP-04) decrypt permission.{" "}
+      <a href="/signer">Reconnect your signer</a>
+    </div>
+  );
+}
+
 export async function NotificationsView() {
   return (
     <Document title="Notifications">
@@ -390,6 +406,7 @@ export async function NotificationsView() {
       >
         <div class="notifications-container">
           <SyncStatusHint />
+          <DmDecryptHint />
           <NotificationOverview />
           <NotificationsList />
 
