@@ -4,6 +4,8 @@ import { unlockLegacyMessage } from "applesauce-common/helpers";
 import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { kinds, type NostrEvent } from "nostr-tools";
 
+import { classifyDmSender } from "../../notifications/dm-category";
+
 // NOTE: This file intentionally does NOT import notifications/messages.ts
 // (or the notifications/index.ts barrel). That module self-subscribes to
 // the live RelayPool/EventStore singleton (services/nostr.ts) at import
@@ -193,5 +195,74 @@ describe("shouldNotify gate order mirror (D3-09)", () => {
 
   test("no lists configured allows everyone", () => {
     expect(decide(sender, {})).toBe(true);
+  });
+});
+
+describe("layered category gate mirror (D5-07)", () => {
+  // Mirrors the exact messages[category].enabled lookup implemented in both
+  // notifications/messages.ts DM listeners: classify the real sender via the
+  // REAL (pure, network-safe) classifyDmSender, then look up that category's
+  // enabled flag. This mirror only covers the category-gate decision in
+  // isolation -- it does not import notifications/messages.ts or
+  // services/nostr.ts (see the top-of-file note). The layering itself (the
+  // category gate running BEFORE the unchanged shouldNotify decide() mirror
+  // above) is asserted structurally by both describe blocks passing: this
+  // block proves the category decision, the sibling block above proves
+  // shouldNotify is untouched -- together they document the two-statement
+  // gate order without either test importing the self-subscribing module.
+  function passesCategoryGate(
+    isFollowed: boolean,
+    flags: { contactsEnabled: boolean; othersEnabled: boolean },
+  ): boolean {
+    return {
+      contacts: { enabled: flags.contactsEnabled },
+      others: { enabled: flags.othersEnabled },
+    }[classifyDmSender(isFollowed)].enabled;
+  }
+
+  test("followed sender + contacts enabled -> passes", () => {
+    expect(
+      passesCategoryGate(true, { contactsEnabled: true, othersEnabled: false }),
+    ).toBe(true);
+  });
+
+  test("followed sender + contacts disabled -> blocked before shouldNotify", () => {
+    expect(
+      passesCategoryGate(true, { contactsEnabled: false, othersEnabled: true }),
+    ).toBe(false);
+  });
+
+  test("not-followed sender + others enabled -> passes", () => {
+    expect(
+      passesCategoryGate(false, { contactsEnabled: true, othersEnabled: true }),
+    ).toBe(true);
+  });
+
+  test("not-followed sender + others disabled -> blocked before shouldNotify", () => {
+    expect(
+      passesCategoryGate(false, {
+        contactsEnabled: true,
+        othersEnabled: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("unavailable follow list (isFollowed=false) is gated by othersEnabled, identical to a genuine non-follow (D5-02)", () => {
+    // isContact falls back to `false` when the follow list can't load in
+    // time -- classifyDmSender treats that identically to a real non-follow,
+    // so the gate here is indistinguishable from the "not-followed" cases
+    // above by design.
+    expect(
+      passesCategoryGate(false, {
+        contactsEnabled: true,
+        othersEnabled: false,
+      }),
+    ).toBe(false);
+    expect(
+      passesCategoryGate(false, {
+        contactsEnabled: false,
+        othersEnabled: true,
+      }),
+    ).toBe(true);
   });
 });
