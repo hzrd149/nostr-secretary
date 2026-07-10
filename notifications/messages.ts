@@ -209,7 +209,7 @@ enabledSigner
               log("Failed to unlock gift wrap", {
                 event: event.id,
                 signer: signer.pubkey,
-                error: error instanceof Error ? error.message : String(error),
+                error: Reflect.get(error, "message") || "Unknown error",
               });
               return EMPTY;
             }),
