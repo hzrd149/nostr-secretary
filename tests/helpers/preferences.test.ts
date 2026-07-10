@@ -252,6 +252,71 @@ describe("sanitizeSyncedPrefs", () => {
 
     expect(sanitized).toEqual(payload);
   });
+
+  test("sets version === PREFS_VERSION on a payload with no version field", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+    });
+
+    expect(sanitized?.version).toBe(PREFS_VERSION);
+    expect(PREFS_VERSION).toBe(2);
+  });
+
+  test("contacts/others round-trip: serialize -> sanitize reproduces both category flags independently (D5-10)", () => {
+    const config = makeConfig({
+      messages: {
+        contacts: { enabled: true },
+        others: { enabled: false },
+        sendContent: true,
+        whitelists: ["msg-white"],
+        blacklists: ["msg-black"],
+      },
+    });
+    const payload = serializePrefs(config);
+    const sanitized = sanitizeSyncedPrefs(payload);
+
+    expect(sanitized?.messages.contacts.enabled).toBe(true);
+    expect(sanitized?.messages.others.enabled).toBe(false);
+  });
+
+  // Pitfall 5 / T-5-04: a pre-Phase-5 peer device only ever published a flat
+  // `messages.enabled` boolean, with no `contacts`/`others` keys at all. This
+  // MUST seed BOTH category flags from that legacy value, never silently
+  // coerce them to false -- otherwise an already-upgraded device would see
+  // DM notifications turn off entirely the moment it applies the old peer's
+  // synced payload.
+  test("old-schema payload (messages.enabled:true, no contacts/others keys) seeds BOTH category flags true, not false (Pitfall 5/T-5-04)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { enabled: true, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+    });
+
+    expect(sanitized?.messages.contacts.enabled).toBe(true);
+    expect(sanitized?.messages.others.enabled).toBe(true);
+  });
+
+  test("old-schema payload (messages.enabled:false, no contacts/others keys) seeds BOTH category flags false (Pitfall 5)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { enabled: false, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+    });
+
+    expect(sanitized?.messages.contacts.enabled).toBe(false);
+    expect(sanitized?.messages.others.enabled).toBe(false);
+  });
 });
 
 describe("isNewerPrefs", () => {
