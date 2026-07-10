@@ -99,12 +99,15 @@ Plans:
 
 **Goal:** Introduce rate limiting for notifications — both per-notification-type limits and a global rate limit across all notifications — to prevent spamming the user's phone when there's heavy group chat activity or repeated nostr tags. When notifications hit a rate limit, send a single grouped notification letting the user know a lot of stuff has happened (e.g., "47 new mentions, 12 group messages") instead of delivering each one individually.
 **Depends on:** None
-**Requirements:** TBD
-**Plans:** 0 plans
+**Requirements:** D6-01, D6-02, D6-03, D6-04, D6-05, D6-06, D6-07, D6-08, D6-09, D6-10
+**Plans:** 4 plans
 
 Plans:
 
-- [ ] TBD (plan with /gsd-plan-phase)
+- [ ] 06-01-PLAN.md — Pure clock-injectable rate-limit accounting/summary unit + full test matrix (D6-02/04/05/09/10)
+- [ ] 06-02-PLAN.md — AppConfig.rateLimit + migration/defaults + kind-30078 sync + CHANGELOG (D6-07/09)
+- [ ] 06-03-PLAN.md — services/rate-limit.ts choke point + config-driven flush bypass + 5 call-site swaps (D6-01/03/06/10)
+- [ ] 06-04-PLAN.md — Minimal per-type + global/window rate-limit UI incl. notifications.tsx first PATCH route (D6-08)
 
 ### Phase 7: Default rate limit for chat groups and DMs on join
 
