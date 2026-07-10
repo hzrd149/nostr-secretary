@@ -58,9 +58,14 @@ per-category whitelists/blacklists (those stay shared — D5-04); a full contact
   Phase-2 sync surface small. The legacy top-level `messages.enabled` is superseded by the two
   category flags — planning decides whether to keep it as a derived/back-compat field or remove it
   (must not break the existing `enabled$`/`enabledSigner` gating in `notifications/messages.ts`).
-- **D5-05 (defaults — both ON):** New installs default **both** `contacts.enabled = true` AND
-  `others.enabled = true` — preserving today's "notify for all DMs" behavior while making the two
-  independently toggleable. (User accepted; `others` ON, not anti-spam-OFF.)
+- **D5-05 (defaults — contacts ON, others OFF):** New installs default `contacts.enabled = true`
+  and `others.enabled = false` — notify for DMs from followed users, but NOT from strangers until
+  the user opts in (anti-spam). **NOTE (corrected):** today's actual seed is `messages.enabled:
+  false` (DMs off entirely, `services/config.ts:65`), so this is a deliberate, conservative
+  behavior change for NEW installs — the planner MUST treat it as an intentional default change,
+  not a preservation. Existing users are unaffected (D5-06 migration preserves their current
+  setting). (User re-decided after the initial "both ON" was corrected — the earlier framing wrongly
+  claimed today notifies for all DMs.)
 - **D5-06 (migration — preserve behavior):** On migrating an existing config, seed **both**
   `contacts.enabled` and `others.enabled` from the current `messages.enabled` value, so upgraders
   see no behavior change. `sendContent`, `whitelists`, `blacklists` carry over unchanged. Follow the
