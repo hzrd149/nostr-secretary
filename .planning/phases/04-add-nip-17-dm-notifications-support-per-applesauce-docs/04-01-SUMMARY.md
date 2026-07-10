@@ -157,3 +157,7 @@ Both pure units (`notifyNewGiftWraps`, `unlockPrivateDirectMessage`) exist, are 
 ---
 *Phase: 04-add-nip-17-dm-notifications-support-per-applesauce-docs*
 *Completed: 2026-07-10*
+
+## Self-Check: PASSED
+
+All created files confirmed present on disk; both task commits (`71f016b`, `b8609ee`) confirmed in git log.
