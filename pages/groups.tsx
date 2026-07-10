@@ -235,6 +235,25 @@ export async function GroupsConfigView() {
           </div>
         )}
 
+        <div class="form-group">
+          <label
+            for="rateLimitPerType"
+            style="font-weight: bold; margin-bottom: 8px; display: block;"
+          >
+            Rate Limit
+          </label>
+          <input
+            type="number"
+            id="rateLimitPerType"
+            data-bind="rateLimitPerType"
+            min="0"
+            value={String(currentConfig.rateLimit.perType.groups)}
+          />
+          <div class="help-text">
+            Max group notifications per window. 0 = unlimited.
+          </div>
+        </div>
+
         <WhitelistBlacklist
           whitelists={groupsConfig.whitelists}
           blacklists={groupsConfig.blacklists}
@@ -279,6 +298,7 @@ const route = {
       const groupLink = signals.groupLink as string;
       const whitelistsText = signals.whitelists as string;
       const blacklistsText = signals.blacklists as string;
+      const rawRateLimitPerType = Number(signals.rateLimitPerType);
 
       try {
         // Parse whitelists and blacklists from textarea (one per line)
@@ -318,6 +338,14 @@ const route = {
           }
         });
 
+        // ASVS V5: clamp the incoming rate-limit signal to a non-negative
+        // integer (finite >= 0, floor floats) before merging -- never trust
+        // an untrusted client-submitted number verbatim.
+        const rateLimitPerType =
+          Number.isFinite(rawRateLimitPerType) && rawRateLimitPerType >= 0
+            ? Math.floor(rawRateLimitPerType)
+            : currentConfig.rateLimit.perType.groups;
+
         // Update config
         const newConfig = {
           ...currentConfig,
@@ -327,6 +355,13 @@ const route = {
             whitelists,
             blacklists,
             modes,
+          },
+          rateLimit: {
+            ...currentConfig.rateLimit,
+            perType: {
+              ...currentConfig.rateLimit.perType,
+              groups: rateLimitPerType,
+            },
           },
         };
 
