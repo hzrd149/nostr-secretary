@@ -1,3 +1,5 @@
+import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
+import type { BunRequest } from "bun";
 import { firstValueFrom } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
@@ -398,6 +400,8 @@ async function DmDecryptHint() {
 }
 
 export async function NotificationsView() {
+  const currentConfig = config$.getValue();
+
   return (
     <Document title="Notifications">
       <Layout
@@ -405,10 +409,74 @@ export async function NotificationsView() {
         subtitle="Configure how you receive notifications for different Nostr events"
       >
         <div class="notifications-container">
+          <div class="success-message" data-show="$saved">
+            ✅ Rate limit settings saved successfully!
+          </div>
+
+          <div
+            class="error-message"
+            data-show="$error"
+            style="margin-bottom: 20px; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;"
+          >
+            ❌ <span data-text="$error"></span>
+          </div>
+
           <SyncStatusHint />
           <DmDecryptHint />
           <NotificationOverview />
           <NotificationsList />
+
+          <div class="notification-section">
+            <div class="form-group">
+              <label
+                for="rateLimitGlobal"
+                style="font-weight: bold; margin-bottom: 8px; display: block;"
+              >
+                Global Rate Limit
+              </label>
+              <input
+                type="number"
+                id="rateLimitGlobal"
+                data-bind="rateLimitGlobal"
+                min="0"
+                value={String(currentConfig.rateLimit.global)}
+              />
+              <div class="help-text">
+                Max notifications across all types per window. 0 = unlimited.
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label
+                for="rateLimitWindow"
+                style="font-weight: bold; margin-bottom: 8px; display: block;"
+              >
+                Rate Limit Window
+              </label>
+              <input
+                type="number"
+                id="rateLimitWindow"
+                data-bind="rateLimitWindow"
+                min="0"
+                value={String(currentConfig.rateLimit.window)}
+              />
+              <div class="help-text">
+                Window duration in seconds shared by the global and per-type
+                limits. 0 = unlimited.
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button
+                class="btn-primary"
+                data-on-click="@patch(location.href)"
+                data-indicator-saving
+                data-attr-disabled="$saving"
+              >
+                Save Rate Limit Settings
+              </button>
+            </div>
+          </div>
 
           <div class="button-group">
             <button
@@ -437,6 +505,58 @@ const route = {
   GET: async () => {
     return new Response(await NotificationsView(), {
       headers: { "Content-Type": "text/html" },
+    });
+  },
+  PATCH: async (req: BunRequest) => {
+    const reader = await ServerSentEventGenerator.readSignals(req);
+    if (!reader.success) throw new Error(reader.error);
+
+    return ServerSentEventGenerator.stream(async (stream) => {
+      const { signals } = reader;
+      const rawRateLimitGlobal = Number(signals.rateLimitGlobal);
+      const rawRateLimitWindow = Number(signals.rateLimitWindow);
+
+      try {
+        const currentConfig = config$.getValue();
+
+        // ASVS V5: clamp both incoming rate-limit signals to a non-negative
+        // integer (finite >= 0, floor floats) before merging -- never trust
+        // an untrusted client-submitted number verbatim.
+        const rateLimitGlobal =
+          Number.isFinite(rawRateLimitGlobal) && rawRateLimitGlobal >= 0
+            ? Math.floor(rawRateLimitGlobal)
+            : currentConfig.rateLimit.global;
+        const rateLimitWindow =
+          Number.isFinite(rawRateLimitWindow) && rawRateLimitWindow >= 0
+            ? Math.floor(rawRateLimitWindow)
+            : currentConfig.rateLimit.window;
+
+        // Update config -- merge global/window at the rateLimit top level
+        // (NOT perType), spreading the rest of currentConfig.rateLimit so
+        // the four per-type limits are preserved.
+        const newConfig = {
+          ...currentConfig,
+          rateLimit: {
+            ...currentConfig.rateLimit,
+            global: rateLimitGlobal,
+            window: rateLimitWindow,
+          },
+        };
+
+        config$.next(newConfig);
+
+        // Signal success
+        stream.patchSignals(JSON.stringify({ saved: true }));
+      } catch (error) {
+        stream.patchSignals(
+          JSON.stringify({
+            error:
+              error instanceof Error
+                ? error.message
+                : "An unknown error occurred",
+          }),
+        );
+      }
     });
   },
 };
