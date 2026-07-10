@@ -89,6 +89,19 @@ const config$ = new BehaviorSubject<AppConfig>({
 const CONFIG_PATH = Bun.env.CONFIG ?? "config.json";
 
 let loaded = false;
+let configWrite = Promise.resolve();
+
+function writeConfig(config: AppConfig) {
+  configWrite = configWrite
+    .catch(() => {})
+    .then(() => fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2)));
+
+  configWrite.catch((error) => {
+    console.error("Failed to write config", error);
+  });
+
+  return configWrite;
+}
 
 // Read config file if set from env
 if (await fs.exists(CONFIG_PATH)) {
@@ -124,12 +137,12 @@ if (await fs.exists(CONFIG_PATH)) {
 
 // Save config when it changes
 config$.pipe(skip(1)).subscribe((config) => {
-  fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2));
+  writeConfig(config);
 });
 
 // If no config file, create one
 if (!loaded)
-  await fs.writeFile(CONFIG_PATH, JSON.stringify(config$.getValue(), null, 2));
+  await writeConfig(config$.getValue());
 
 /** Create an observable that gets a config value */
 export function configValue<K extends keyof AppConfig>(
@@ -141,6 +154,7 @@ export function configValue<K extends keyof AppConfig>(
 /** Sets a config value */
 export function updateConfig(update: Partial<AppConfig>) {
   config$.next({ ...config$.value, ...update });
+  return configWrite;
 }
 
 export function getConfig() {

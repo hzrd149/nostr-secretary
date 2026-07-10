@@ -1,4 +1,3 @@
-import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import {
   getGroupPointerFromGroupTag,
   getHiddenMutedThings,
@@ -23,11 +22,9 @@ import {
   createEventLoaderForStore,
   createUserListsLoader,
 } from "applesauce-loaders/loaders";
-import { onlyEvents, RelayPool } from "applesauce-relay";
-import { NostrConnectSigner } from "applesauce-signers";
+import { onlyEvents } from "applesauce-relay";
 import { kinds } from "nostr-tools";
 import {
-  BehaviorSubject,
   combineLatest,
   EMPTY,
   filter,
@@ -50,6 +47,11 @@ import {
 import { loadLists } from "../helpers/lists";
 import config$, { configValue } from "./config";
 import { log } from "./logs";
+import { pool } from "./relays";
+import { signer$ } from "./signer";
+
+export { pool } from "./relays";
+export { signer$ } from "./signer";
 
 function shareAndHold<T>(timeout = 60_000): MonoTypeOperatorFunction<T> {
   return share({
@@ -59,14 +61,6 @@ function shareAndHold<T>(timeout = 60_000): MonoTypeOperatorFunction<T> {
 }
 
 export const eventStore = new EventStore();
-export const pool = new RelayPool({
-  enablePing: true,
-  onUnresponsive: () => "reconnect",
-});
-
-// Setup bunker signers
-NostrConnectSigner.subscriptionMethod = pool.subscription.bind(pool);
-NostrConnectSigner.publishMethod = pool.publish.bind(pool);
 
 const lookupRelays = config$.pipe(map((c) => c.lookupRelays));
 export const eventLoader = createEventLoaderForStore(eventStore, pool, {
@@ -119,30 +113,6 @@ export const messageInboxes$ = configValue("pubkey").pipe(
   // Keep observable warm for 60s
   shareAndHold(60_000),
 );
-
-/** An observable of the users signer */
-export const signer$ = new BehaviorSubject<NostrConnectAccount<any> | null>(
-  null,
-);
-
-// Update the account when the signer changes
-configValue("signer")
-  .pipe()
-  .subscribe((signer) => {
-    if (!signer) return;
-    if (signer.id === signer$.value?.id) return;
-
-    log("Restoring signer", { pubkey: signer.pubkey });
-
-    // Only support nostr-connect
-    switch (signer.type) {
-      case "nostr-connect":
-        signer$.next(NostrConnectAccount.fromJSON(signer));
-        break;
-      default:
-        log("Unsupported signer type", { type: signer.type });
-    }
-  });
 
 export const groups$ = combineLatest([user$, mailboxes$]).pipe(
   switchMap(([user, mailboxes]) => {

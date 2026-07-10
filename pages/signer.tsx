@@ -1,39 +1,19 @@
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import { NostrConnectAccount } from "applesauce-accounts/accounts";
-import { NostrConnectSigner } from "applesauce-signers";
 import type { BunRequest } from "bun";
-import { BehaviorSubject } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import { DEFAULT_SIGNER_RELAYS, SIGNER_PERMISSIONS } from "../const";
-import config$, { getConfig, updateConfig } from "../services/config";
+import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
-import { pool, signer$ } from "../services/nostr";
-
-const newSigner$ = new BehaviorSubject<NostrConnectSigner | null>(null);
+import {
+  clearSigner,
+  getPendingSignerConnectUrl,
+  saveBunkerSigner,
+  savePendingSigner,
+} from "../services/signer";
 
 function SetupPage() {
-  let signer = newSigner$.value;
-
-  if (!signer) {
-    log("Creating new signer");
-    signer = new NostrConnectSigner({
-      pool,
-      relays: DEFAULT_SIGNER_RELAYS,
-    });
-
-    // Start waiting for the signer to connect
-    signer.waitForSigner();
-
-    // Set the signer
-    newSigner$.next(signer);
-  }
-
   // Generate QR code URL using qr-server.com (same as home.tsx)
-  const connectUrl = signer.getNostrConnectURI({
-    name: "Nostr Secretary",
-    permissions: SIGNER_PERMISSIONS,
-  });
+  const connectUrl = getPendingSignerConnectUrl();
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(connectUrl)}`;
 
   return (
@@ -255,26 +235,8 @@ const route = {
   POST: async () => {
     // QR code connection flow
     return ServerSentEventGenerator.stream(async (stream) => {
-      const signer = newSigner$.value;
-
       try {
-        if (!signer) throw new Error("No signer available");
-
-        await signer.waitForSigner();
-        log("Signer connected via QR");
-        newSigner$.next(null);
-
-        const pubkey = await signer.getPublicKey();
-        log("Found pubkey", { pubkey });
-
-        // Create account and update config
-        const account = new NostrConnectAccount(pubkey, signer);
-
-        // Set the signer
-        signer$.next(account);
-
-        // Update the config
-        updateConfig({ signer: account.toJSON() });
+        await savePendingSigner();
 
         // Signal success
         stream.patchElements(
@@ -309,28 +271,12 @@ const route = {
           throw new Error("Bunker URI is required");
 
         try {
-          // Create signer from bunker URI
-          const signer = await NostrConnectSigner.fromBunkerURI(
-            bunkerUri.trim(),
-            { permissions: SIGNER_PERMISSIONS },
-          );
-
-          // Test the connection by getting the public key
-          const pubkey = await signer.getPublicKey();
-
-          // Create account and update config
-          const account = new NostrConnectAccount(pubkey, signer);
-
-          // Set the signer
-          signer$.next(account);
-
-          // Update the config
-          updateConfig({ signer: account.toJSON() });
+          await saveBunkerSigner(bunkerUri);
 
           stream.patchElements(
             await (
               <div id="content">
-                <SetupPage />
+                <ConnectedPage />
               </div>
             ),
           );
@@ -355,9 +301,7 @@ const route = {
   DELETE: async () => {
     return ServerSentEventGenerator.stream(async (stream) => {
       try {
-        // Disconnect signer
-        const currentConfig = config$.getValue();
-        config$.next({ ...currentConfig, signer: undefined });
+        await clearSigner();
 
         // Replace view
         stream.patchElements(

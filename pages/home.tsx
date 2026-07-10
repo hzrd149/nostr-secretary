@@ -1,17 +1,15 @@
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { normalizeToPubkey } from "applesauce-core/helpers";
-import { NostrConnectSigner } from "applesauce-signers";
 import type { BunRequest } from "bun";
-import { BehaviorSubject, firstValueFrom } from "rxjs";
+import { firstValueFrom } from "rxjs";
 import Document from "../components/Document";
-import { DEFAULT_SIGNER_RELAYS, SIGNER_PERMISSIONS } from "../const";
 import * as messagesNotification from "../notifications/messages";
 import * as repliesNotification from "../notifications/replies";
 import * as zapsNotification from "../notifications/zaps";
-import config$, { updateConfig } from "../services/config";
+import config$ from "../services/config";
 import { log } from "../services/logs";
-import { mailboxes$, messageInboxes$, pool, signer$ } from "../services/nostr";
+import { mailboxes$, messageInboxes$, pool } from "../services/nostr";
+import { getPendingSignerConnectUrl, savePendingSigner } from "../services/signer";
 
 const styles = `
 .home-container {
@@ -236,27 +234,8 @@ async function StatusSummary() {
 }
 
 function SetupComponent() {
-  let signer = newSigner$.value;
-
-  if (!signer) {
-    log("Creating new signer");
-    signer = new NostrConnectSigner({
-      pool,
-      relays: DEFAULT_SIGNER_RELAYS,
-    });
-
-    // Start waiting for the signer to connect
-    signer.waitForSigner();
-
-    // Set the signer
-    newSigner$.next(signer);
-  }
-
   // Generate QR code URL using qr-server.com (same as mobile.tsx)
-  const connectUrl = signer.getNostrConnectURI({
-    name: "Nostr Secretary",
-    permissions: SIGNER_PERMISSIONS,
-  });
+  const connectUrl = getPendingSignerConnectUrl();
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(connectUrl)}`;
 
   return (
@@ -339,8 +318,6 @@ function SetupComponent() {
     </>
   );
 }
-
-const newSigner$ = new BehaviorSubject<NostrConnectSigner | null>(null);
 
 export function HomeView() {
   const config = config$.getValue();
@@ -428,28 +405,8 @@ const route = {
   // Post method for subscribing to new signer state
   POST: () =>
     ServerSentEventGenerator.stream(async (stream) => {
-      const signer = newSigner$.value;
-      if (!signer) return;
-
       try {
-        await signer.waitForSigner();
-        log("Signer connected via QR");
-        newSigner$.next(null);
-
-        const pubkey = await signer.getPublicKey();
-        log("Found pubkey", { pubkey });
-
-        // Create account and update config
-        const account = new NostrConnectAccount(pubkey, signer);
-
-        // Set the signer
-        signer$.next(account);
-
-        // Update the config with both pubkey and signer
-        updateConfig({
-          pubkey,
-          signer: account.toJSON(),
-        });
+        await savePendingSigner({ savePubkey: true });
 
         // Setup is complete, so update home view
         stream.patchElements(await HomeView());
