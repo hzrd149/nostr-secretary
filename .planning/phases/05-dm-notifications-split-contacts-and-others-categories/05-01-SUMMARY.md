@@ -151,3 +151,9 @@ None - no external service configuration required.
 ---
 *Phase: 05-dm-notifications-split-contacts-and-others-categories*
 *Completed: 2026-07-10*
+
+## Self-Check: PASSED
+
+All created/modified files found on disk (services/nostr.ts, notifications/dm-category.ts,
+tests/notifications/dm-category.test.ts, this SUMMARY.md). All commit hashes (9a837af, bb33e2f,
+3373e02, 6cab0b0) found in git log.
