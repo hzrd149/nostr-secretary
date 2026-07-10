@@ -96,8 +96,11 @@ Items acknowledged and carried forward from previous milestone close:
 | Phase | State | Resume |
 |-------|-------|--------|
 | 01 | verification_deferred_human | /gsd-verify-work 1 |
+| 02 | verification_deferred_human | /gsd-verify-work 2 |
 
 Phase 01 is code-complete (23/23 truths verified, 25/25 automated tests pass, lint clean, reviewed & fixed). Two UAT checks require a live NIP-29 signer session (visual /groups rendering + save→reload persistence round trip) and were deferred by user choice during the autonomous run on 2026-07-07 to keep building. Resume with `/gsd-verify-work 1` when a signer with a joined group is available.
+
+Phase 02 is code-complete (4/4 plans, UAT + verification report committed). Its remaining verification is manual UAT requiring a live signer session (encrypted kind-30078 publish + save→reload/sync round trip). Deferred by user choice during the autonomous run on 2026-07-09 to keep building phases 3–7. Resume with `/gsd-verify-work 2` when a signer is available.
 
 ## Session Continuity
 
