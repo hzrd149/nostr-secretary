@@ -26,7 +26,10 @@ export type AppConfig = {
   blacklists: string[];
   /** Direct message notifications */
   messages: {
-    enabled: boolean;
+    /** Notifications for DMs from senders on the user's kind-3 follow list (D5-01/D5-04) */
+    contacts: { enabled: boolean };
+    /** Notifications for DMs from senders NOT on the user's kind-3 follow list (D5-04) */
+    others: { enabled: boolean };
     sendContent: boolean;
     whitelists: string[];
     blacklists: string[];
@@ -55,18 +58,31 @@ export type AppConfig = {
   };
 };
 
+/**
+ * The D5-05 (corrected) new-install default for `messages`: notify for DMs
+ * from followed senders (contacts) but NOT from strangers (others) until the
+ * user explicitly opts in -- a conservative, anti-spam default distinct from
+ * the pre-Phase-5 seed (`messages.enabled: false`, i.e. no DM notifications
+ * at all). Existing users are unaffected -- `migrateConfig`'s D5-06 step
+ * seeds both flags from their current `messages.enabled` value instead.
+ * Exported so tests (and any future gate) can assert against this default
+ * directly rather than duplicating its shape.
+ */
+export const DEFAULT_MESSAGES_CONFIG: AppConfig["messages"] = {
+  contacts: { enabled: true },
+  others: { enabled: false },
+  sendContent: false,
+  whitelists: [],
+  blacklists: [],
+};
+
 const config$ = new BehaviorSubject<AppConfig>({
   topic: nanoid().toLowerCase(),
   lookupRelays: DEFAULT_LOOKUP_RELAYS,
   appLink: "nostr:{link}",
   whitelists: [],
   blacklists: [],
-  messages: {
-    enabled: false,
-    sendContent: false,
-    whitelists: [],
-    blacklists: [],
-  },
+  messages: DEFAULT_MESSAGES_CONFIG,
   replies: {
     enabled: true,
     whitelists: [],
@@ -108,13 +124,21 @@ function writeConfig(config: AppConfig) {
  * before it is merged into config$. Pure function of its input -- no I/O, no
  * config$ access -- so it is unit-testable in isolation (D3-09).
  *
- * Applies two migrations:
+ * Applies three migrations:
  * 1. Reshapes the old `directMessageNotifications` boolean field into the
  *    `messages` object. `messages.sendContent` is forced to `false`
  *    unconditionally (D3-04) -- an upgrading user must never be silently
  *    opted into forwarding decrypted DM plaintext to the ntfy server, even
  *    if they previously had DM notifications enabled.
- * 2. Backfills `groups.modes` for configs written before per-group modes
+ * 2. Splits the flat `messages.enabled` field into per-category
+ *    `messages.contacts.enabled` / `messages.others.enabled`, seeding BOTH
+ *    from the pre-existing value so upgraders see no behavior change (D5-06).
+ *    Runs whether `messages.enabled` came from this migration's own
+ *    `directMessageNotifications` reshape above, or was already present from
+ *    a Phase-3/4-era config.json. Guarded on both `contacts` AND `others`
+ *    being absent, so a config already on the new shape is left untouched
+ *    (idempotent) and no `messages.enabled` key is ever re-introduced.
+ * 3. Backfills `groups.modes` for configs written before per-group modes
  *    shipped (Phase 1 D-10, Pitfall 1). Guards against the documented legacy
  *    shape (key absent) as well as other invalid persisted shapes -- `null`
  *    (valid JSON, plausible from a hand-edited config.json) or any
@@ -131,6 +155,22 @@ export function migrateConfig(parsed: any): any {
       blacklists: [],
     };
     delete parsed.directMessageNotifications;
+  }
+
+  // D5-06: split the flat messages.enabled into per-category contacts/others
+  // flags, seeding BOTH from the legacy value. The guard (both keys absent)
+  // makes this idempotent -- a config already carrying contacts/others is
+  // skipped, and messages.enabled is never re-added.
+  if (
+    parsed.messages &&
+    typeof parsed.messages === "object" &&
+    parsed.messages.contacts === undefined &&
+    parsed.messages.others === undefined
+  ) {
+    const legacyEnabled = parsed.messages.enabled === true;
+    parsed.messages.contacts = { enabled: legacyEnabled };
+    parsed.messages.others = { enabled: legacyEnabled };
+    delete parsed.messages.enabled;
   }
 
   // Backfill groups.modes for configs written before per-group modes shipped

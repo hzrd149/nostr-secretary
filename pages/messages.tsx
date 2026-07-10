@@ -31,21 +31,44 @@ export function MessagesConfigView() {
           <div style="display: flex; align-items: flex-start; gap: 10px;">
             <input
               type="checkbox"
-              id="enabled"
-              data-bind="enabled"
-              checked={messagesConfig.enabled}
+              id="contactsEnabled"
+              data-bind="contactsEnabled"
+              checked={messagesConfig.contacts.enabled}
               style="margin-top: 4px; width: 20px; height: 20px;"
             />
             <div style="flex: 1;">
               <label
-                for="enabled"
+                for="contactsEnabled"
                 style="font-weight: bold; margin-bottom: 8px; display: block;"
               >
-                Enable Direct Message Notifications
+                Contacts
               </label>
               <div class="help-text">
-                Receive notifications when you get direct messages (DMs) on
-                Nostr.
+                Notify for DMs from people you follow (your NIP-02 contact
+                list).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <input
+              type="checkbox"
+              id="othersEnabled"
+              data-bind="othersEnabled"
+              checked={messagesConfig.others.enabled}
+              style="margin-top: 4px; width: 20px; height: 20px;"
+            />
+            <div style="flex: 1;">
+              <label
+                for="othersEnabled"
+                style="font-weight: bold; margin-bottom: 8px; display: block;"
+              >
+                Others
+              </label>
+              <div class="help-text">
+                Notify for DMs from people you don't follow.
               </div>
             </div>
           </div>
@@ -125,7 +148,8 @@ const route = {
 
     return ServerSentEventGenerator.stream(async (stream) => {
       const { signals } = reader;
-      const enabled = signals.enabled as boolean;
+      const contactsEnabled = signals.contactsEnabled as boolean;
+      const othersEnabled = signals.othersEnabled as boolean;
       const sendContent = signals.sendContent as boolean;
       const whitelistsText = signals.whitelists as string;
       const blacklistsText = signals.blacklists as string;
@@ -151,7 +175,8 @@ const route = {
         const newConfig = {
           ...currentConfig,
           messages: {
-            enabled: !!enabled,
+            contacts: { enabled: !!contactsEnabled },
+            others: { enabled: !!othersEnabled },
             sendContent: !!sendContent,
             whitelists,
             blacklists,

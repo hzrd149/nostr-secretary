@@ -16,8 +16,16 @@ export const PREFS_KIND = 30078;
  */
 export const PREFS_NAMESPACE = "nostr-secretary/notification-prefs";
 
-/** Forward-compatible schema marker included in every synced payload (D2-06). */
-export const PREFS_VERSION = 1;
+/**
+ * Forward-compatible schema marker included in every synced payload (D2-06).
+ * Bumped to 2 for the D5-10 messages.contacts/messages.others split --
+ * `sanitizeSyncedPrefs`'s `asMessagesCategories` fallback (below) uses the
+ * absence of `contacts`/`others` keys (not this version number directly) to
+ * detect a not-yet-upgraded peer's old-schema payload, so the bump itself is
+ * a forward-compatibility marker for future schema changes rather than the
+ * mechanism this particular fallback keys off of (Pitfall 5).
+ */
+export const PREFS_VERSION = 2;
 
 /**
  * The rules-only subset of `AppConfig` that is serialized, NIP-44
@@ -28,7 +36,12 @@ export const PREFS_VERSION = 1;
  */
 export type SyncedPrefs = {
   version: number;
-  messages: { enabled: boolean; whitelists: string[]; blacklists: string[] };
+  messages: {
+    contacts: { enabled: boolean };
+    others: { enabled: boolean };
+    whitelists: string[];
+    blacklists: string[];
+  };
   replies: { enabled: boolean; whitelists: string[]; blacklists: string[] };
   zaps: { enabled: boolean; whitelists: string[]; blacklists: string[] };
   groups: {
@@ -54,7 +67,8 @@ export function serializePrefs(config: AppConfig): SyncedPrefs {
   return {
     version: PREFS_VERSION,
     messages: {
-      enabled: config.messages.enabled,
+      contacts: { enabled: config.messages.contacts.enabled },
+      others: { enabled: config.messages.others.enabled },
       whitelists: config.messages.whitelists,
       blacklists: config.messages.blacklists,
     },
@@ -104,6 +118,38 @@ function asModes(value: unknown): Record<string, GroupNotificationMode> {
 }
 
 /**
+ * Coerces a raw decrypted `messages` object's category flags, with a D5-10/
+ * Pitfall-5 fallback for a not-yet-upgraded peer device: if `raw.contacts` or
+ * `raw.others` is present, this is a new-schema payload and each nested
+ * `enabled` is coerced independently via `asBoolean`. Otherwise -- an
+ * old-schema payload from a pre-Phase-5 peer, which only ever had a flat
+ * `messages.enabled` -- BOTH categories are seeded from
+ * `asBoolean(raw.enabled)` instead of silently coercing to `false`. Without
+ * this fallback, a rolling multi-device upgrade would see the still-old
+ * device's synced payload turn off DM notifications entirely on the already-
+ * upgraded device (T-5-04).
+ */
+function asMessagesCategories(raw: Record<string, unknown>): {
+  contacts: { enabled: boolean };
+  others: { enabled: boolean };
+} {
+  if (raw.contacts !== undefined || raw.others !== undefined) {
+    const contacts = (raw.contacts ?? {}) as Record<string, unknown>;
+    const others = (raw.others ?? {}) as Record<string, unknown>;
+    return {
+      contacts: { enabled: asBoolean(contacts.enabled) },
+      others: { enabled: asBoolean(others.enabled) },
+    };
+  }
+
+  const legacyEnabled = asBoolean(raw.enabled);
+  return {
+    contacts: { enabled: legacyEnabled },
+    others: { enabled: legacyEnabled },
+  };
+}
+
+/**
  * ASVS V5 input validator/sanitizer for an untrusted decrypted kind-30078
  * payload (e.g. from another device, or a third-party interoperating app --
  * an explicit interop surface). Returns null if `value` is not a plain
@@ -130,7 +176,7 @@ export function sanitizeSyncedPrefs(value: unknown): SyncedPrefs | null {
   return {
     version,
     messages: {
-      enabled: asBoolean(messages.enabled),
+      ...asMessagesCategories(messages),
       whitelists: asStringArray(messages.whitelists),
       blacklists: asStringArray(messages.blacklists),
     },
@@ -172,7 +218,8 @@ export function mergePrefs(
     ...current,
     messages: {
       ...current.messages,
-      enabled: incoming.messages.enabled,
+      contacts: { enabled: incoming.messages.contacts.enabled },
+      others: { enabled: incoming.messages.others.enabled },
       whitelists: incoming.messages.whitelists,
       blacklists: incoming.messages.blacklists,
     },

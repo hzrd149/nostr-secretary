@@ -75,7 +75,7 @@ async function shouldNotify(pubkey: string): Promise<boolean> {
 
 /** If the direct message notifications are enabled */
 export const enabled$ = config$.pipe(
-  map((c) => c.messages.enabled),
+  map((c) => c.messages.contacts.enabled || c.messages.others.enabled),
   // Get signer and inboxes
   switchMap((enabled) =>
     enabled

@@ -35,7 +35,8 @@ function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     whitelists: ["global-white"],
     blacklists: ["global-black"],
     messages: {
-      enabled: true,
+      contacts: { enabled: true },
+      others: { enabled: true },
       sendContent: true,
       whitelists: ["msg-white"],
       blacklists: ["msg-black"],
@@ -69,7 +70,8 @@ describe("serializePrefs", () => {
     expect(payload).toEqual({
       version: PREFS_VERSION,
       messages: {
-        enabled: true,
+        contacts: { enabled: true },
+        others: { enabled: true },
         whitelists: ["msg-white"],
         blacklists: ["msg-black"],
       },
@@ -130,7 +132,8 @@ describe("mergePrefs", () => {
         fixture: "current-signer-blob",
       } as unknown as AppConfig["signer"],
       messages: {
-        enabled: false,
+        contacts: { enabled: false },
+        others: { enabled: false },
         sendContent: true,
         whitelists: ["current-msg-white"],
         blacklists: ["current-msg-black"],
@@ -149,7 +152,8 @@ describe("mergePrefs", () => {
       blacklists: ["incoming-black"],
       appLink: "nostr:{incoming-link}",
       messages: {
-        enabled: true,
+        contacts: { enabled: true },
+        others: { enabled: false },
         sendContent: false, // never read by serializePrefs, irrelevant to the incoming payload
         whitelists: ["incoming-msg-white"],
         blacklists: ["incoming-msg-black"],
@@ -177,7 +181,12 @@ describe("mergePrefs", () => {
     expect(merged.groups.groupLink).toBe(current.groups.groupLink);
 
     // Synced fields come from incoming
-    expect(merged.messages.enabled).toBe(incoming.messages.enabled);
+    expect(merged.messages.contacts.enabled).toBe(
+      incoming.messages.contacts.enabled,
+    );
+    expect(merged.messages.others.enabled).toBe(
+      incoming.messages.others.enabled,
+    );
     expect(merged.messages.whitelists).toBe(incoming.messages.whitelists);
     expect(merged.messages.blacklists).toBe(incoming.messages.blacklists);
     expect(merged.replies).toEqual(incoming.replies);
@@ -204,7 +213,7 @@ describe("sanitizeSyncedPrefs", () => {
     const sanitized = sanitizeSyncedPrefs({
       whitelists: ["good", 42, null, "also-good", {}],
       blacklists: ["fine"],
-      messages: { enabled: true, whitelists: [], blacklists: [] },
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
       replies: { enabled: true, whitelists: [], blacklists: [] },
       zaps: { enabled: true, whitelists: [], blacklists: [] },
       groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
@@ -218,7 +227,7 @@ describe("sanitizeSyncedPrefs", () => {
     const sanitized = sanitizeSyncedPrefs({
       whitelists: [],
       blacklists: [],
-      messages: { enabled: true, whitelists: [], blacklists: [] },
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
       replies: { enabled: true, whitelists: [], blacklists: [] },
       zaps: { enabled: true, whitelists: [], blacklists: [] },
       groups: {
@@ -242,6 +251,71 @@ describe("sanitizeSyncedPrefs", () => {
     const sanitized = sanitizeSyncedPrefs(payload);
 
     expect(sanitized).toEqual(payload);
+  });
+
+  test("sets version === PREFS_VERSION on a payload with no version field", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+    });
+
+    expect(sanitized?.version).toBe(PREFS_VERSION);
+    expect(PREFS_VERSION).toBe(2);
+  });
+
+  test("contacts/others round-trip: serialize -> sanitize reproduces both category flags independently (D5-10)", () => {
+    const config = makeConfig({
+      messages: {
+        contacts: { enabled: true },
+        others: { enabled: false },
+        sendContent: true,
+        whitelists: ["msg-white"],
+        blacklists: ["msg-black"],
+      },
+    });
+    const payload = serializePrefs(config);
+    const sanitized = sanitizeSyncedPrefs(payload);
+
+    expect(sanitized?.messages.contacts.enabled).toBe(true);
+    expect(sanitized?.messages.others.enabled).toBe(false);
+  });
+
+  // Pitfall 5 / T-5-04: a pre-Phase-5 peer device only ever published a flat
+  // `messages.enabled` boolean, with no `contacts`/`others` keys at all. This
+  // MUST seed BOTH category flags from that legacy value, never silently
+  // coerce them to false -- otherwise an already-upgraded device would see
+  // DM notifications turn off entirely the moment it applies the old peer's
+  // synced payload.
+  test("old-schema payload (messages.enabled:true, no contacts/others keys) seeds BOTH category flags true, not false (Pitfall 5/T-5-04)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { enabled: true, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+    });
+
+    expect(sanitized?.messages.contacts.enabled).toBe(true);
+    expect(sanitized?.messages.others.enabled).toBe(true);
+  });
+
+  test("old-schema payload (messages.enabled:false, no contacts/others keys) seeds BOTH category flags false (Pitfall 5)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { enabled: false, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+    });
+
+    expect(sanitized?.messages.contacts.enabled).toBe(false);
+    expect(sanitized?.messages.others.enabled).toBe(false);
   });
 });
 
@@ -270,7 +344,7 @@ describe("samePrefsPayload", () => {
   test("returns false when one field differs (D2-09)", () => {
     const payload = serializePrefs(makeConfig());
     const changed = structuredClone(payload);
-    changed.messages.enabled = !changed.messages.enabled;
+    changed.messages.contacts.enabled = !changed.messages.contacts.enabled;
 
     expect(samePrefsPayload(payload, changed)).toBe(false);
   });
