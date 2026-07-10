@@ -21,4 +21,12 @@ describe("SIGNER_PERMISSIONS", () => {
   test("includes nip44_decrypt (D2-13)", () => {
     expect(SIGNER_PERMISSIONS).toContain("nip44_decrypt");
   });
+
+  test("includes nip04_decrypt (D3-02 — legacy kind-4 DM decryption)", () => {
+    expect(SIGNER_PERMISSIONS).toContain("nip04_decrypt");
+  });
+
+  test("does NOT include nip04_encrypt (D3-03 — receive-only, no DM send path)", () => {
+    expect(SIGNER_PERMISSIONS).not.toContain("nip04_encrypt");
+  });
 });
