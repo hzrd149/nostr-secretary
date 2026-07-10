@@ -25,7 +25,6 @@ import {
 import { onlyEvents } from "applesauce-relay";
 import { kinds } from "nostr-tools";
 import {
-  catchError,
   combineLatest,
   EMPTY,
   filter,
@@ -44,7 +43,7 @@ import {
   toArray,
   type MonoTypeOperatorFunction,
 } from "rxjs";
-import { notifyNewGiftWraps } from "../helpers/gift-wrap-subscription";
+import { seededGiftWraps } from "../helpers/gift-wrap-subscription";
 import { loadLists } from "../helpers/lists";
 import config$, { configValue } from "./config";
 import { log } from "./logs";
@@ -229,21 +228,31 @@ export const giftWraps$ = combineLatest([
     // Seed: one-shot fetch of the current backlog, completes on EOSE
     // (pool.request's default complete condition). Persisted directly into
     // the real eventStore; never reaches subscribers of this observable.
-    // A seed failure (timeout/relay error) must not block the live phase
-    // below -- never letting one unresponsive DM relay kill the whole
-    // notification pipeline.
     const seedRequest$ = pool.request(messageInboxes, giftWrapFilter, {
       eventStore,
       timeout: 10_000,
     });
-    const seed$ = seedRequest$.pipe(catchError(() => EMPTY));
 
     // Live: persistent subscription, reconnect forever (unchanged shape).
     const live$ = pool.subscription(messageInboxes, giftWrapFilter, {
       reconnect: Infinity,
     });
 
-    return notifyNewGiftWraps(seed$, live$);
+    // CR-01: a seed failure (timeout/relay error) must NEVER fall through
+    // to `live$` with an empty `seen` set -- `live$` is a fresh REQ and
+    // will resend the entire matching history (Pitfall 1, no `since`
+    // filter since NIP-59 randomizes `created_at`), which would otherwise
+    // re-notify every historical gift-wrapped DM. `seededGiftWraps` retries
+    // the seed with backoff, logs on final failure (WR-03), and fails
+    // closed (suppresses this cycle's notifications entirely) rather than
+    // risking a mass re-notification storm.
+    return seededGiftWraps(seedRequest$, live$, {
+      onSeedFailure: (error) =>
+        log(
+          "Gift wrap seed request failed after retries -- suppressing live gift-wrap notifications until the next resubscribe to avoid mass re-notification of historical DMs",
+          { error: error instanceof Error ? error.message : String(error) },
+        ),
+    });
   }),
   mapEventsToStore(eventStore),
   share(),
