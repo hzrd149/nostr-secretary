@@ -163,3 +163,7 @@ None - no external service configuration required.
 ---
 *Phase: 03-review-and-add-nip-04-dm-support-per-applesauce-docs*
 *Completed: 2026-07-10*
+
+## Self-Check: PASSED
+
+All created/modified files verified present on disk (tests/notifications/messages.test.ts, notifications/messages.ts, pages/notifications.tsx, this SUMMARY.md); all task and metadata commit hashes (aa6108c, b396b84, 0338b72, 461b5c2) verified present in git log.
