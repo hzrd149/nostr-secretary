@@ -83,7 +83,7 @@ Plans:
 **Goal:** Split DM notifications into two default categories: "contacts" (DMs from users the recipient follows) and "others" (DMs from users not in the recipient's contact list). Each category gets its own default notification settings, so users can easily manage notifications for friends vs. strangers messaging them. This avoids a single blanket DM notification setting and gives users granular control over who can ping them.
 **Depends on:** Phase 3, Phase 4
 **Requirements:** D5-01, D5-02, D5-03, D5-04, D5-05, D5-06, D5-07, D5-08, D5-09, D5-10 (CONTEXT.md decisions serve as the requirements contract)
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
@@ -93,7 +93,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 05-03-PLAN.md — Layered per-category enable gate in both NIP-04/NIP-17 DM listeners + truth-table test (Wave 2)
+- [x] 05-03-PLAN.md — Layered per-category enable gate in both NIP-04/NIP-17 DM listeners + truth-table test (Wave 2)
 
 ### Phase 6: Notification rate limiting per type and global with grouped overflow
 
