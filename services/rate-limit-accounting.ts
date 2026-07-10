@@ -37,6 +37,39 @@ export type RateLimitConfig = {
   perType: Record<NotificationType, number>;
 };
 
+/** Minimum/maximum bounds (seconds) enforced on any `window` value before it
+ * reaches `rollIfExpired`/`evaluate` below. Unlike `global`/`perType`, `0` is
+ * NEVER "unlimited" for `window` -- `rollIfExpired`'s `now - windowStart <
+ * windowSeconds` is false on essentially every call when `windowSeconds`
+ * is `0`, so every call would silently roll to a fresh all-zero state
+ * before the limit check runs, permanently defeating rate limiting rather
+ * than disabling it in a visible way (the CR-01 iteration-2 finding). The
+ * upper bound guards against `window * 1000` overflowing the 32-bit signed
+ * `setTimeout` delay services/rate-limit.ts's flush timer relies on
+ * (~24.8 days).
+ *
+ * Deliberately defined in this zero-dependency pure module (not
+ * services/rate-limit.ts) so services/config.ts's `migrateConfig` and
+ * helpers/preferences.ts's NIP-78 sync sanitizer can both import it
+ * directly, clamping a degenerate window at every input surface (disk
+ * config, sync payload) without creating a circular module dependency back
+ * through services/rate-limit.ts's top-level flush-timer subscription
+ * (which itself depends on services/config.ts). services/rate-limit.ts
+ * re-exports these for its own existing callers (the flush timer,
+ * rateLimitedNotify, pages/notifications.tsx, tests). */
+export const MIN_WINDOW_SECONDS = 1;
+export const MAX_WINDOW_SECONDS = 86400;
+
+/** Clamps an arbitrary `window` value (including `0`, negative, `NaN`, or
+ * excessively large numbers) into the safe `[MIN_WINDOW_SECONDS,
+ * MAX_WINDOW_SECONDS]` range. See MIN_WINDOW_SECONDS's docstring above for
+ * why this is a required, source-level clamp rather than a timer-only
+ * nicety. */
+export function clampWindowSeconds(window: number): number {
+  if (!Number.isFinite(window)) return MIN_WINDOW_SECONDS;
+  return Math.min(MAX_WINDOW_SECONDS, Math.max(MIN_WINDOW_SECONDS, window));
+}
+
 /**
  * In-memory state for the current tumbling window: when it started, how
  * many notifications have been delivered (globally and per type), and how

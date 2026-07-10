@@ -18,6 +18,11 @@ import {
   isNewerPrefs,
   samePrefsPayload,
 } from "../../helpers/preferences";
+import {
+  evaluate,
+  createRateLimitState,
+  MIN_WINDOW_SECONDS,
+} from "../../services/rate-limit-accounting";
 
 /** Builds a full AppConfig fixture with local-only secrets set, so tests can
  *  assert they survive (or never leak into) the synced subset. */
@@ -404,6 +409,72 @@ describe("sanitizeSyncedPrefs rateLimit (D6-07 / RESEARCH Pitfall 6)", () => {
     const current = makeConfig();
     const merged = mergePrefs(current, sanitized!);
     expect(merged.rateLimit).toEqual(payload.rateLimit);
+  });
+
+  // CR-01 (iteration 2): a synced payload with `rateLimit.window: 0` is a
+  // realistic adversarial/interop input -- another device or a third-party
+  // app publishing a kind-30078 payload with a degenerate window. Unlike
+  // global/perType (where 0 legitimately means "unlimited"), `window: 0`
+  // must never reach this device's config unclamped, or the entire rate
+  // limiter (D6-01..D6-10) is silently disabled the moment this payload is
+  // applied via mergePrefs/updateConfig.
+  test("CR-01 (iter 2): a synced payload with rateLimit.window:0 is clamped up to MIN_WINDOW_SECONDS, not applied as 0", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      rateLimit: {
+        window: 0,
+        global: 1,
+        perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      },
+    });
+
+    expect(sanitized?.rateLimit.window).toBe(MIN_WINDOW_SECONDS);
+    expect(sanitized?.rateLimit.window).not.toBe(0);
+    // global/perType 0-as-unlimited semantics are untouched by this fix.
+    expect(sanitized?.rateLimit.global).toBe(1);
+  });
+
+  test("CR-01 (iter 2): after mergePrefs applies a synced window:0 payload, evaluate() still rate-limits -- 1 of 10 delivered, not 10 of 10", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      rateLimit: {
+        window: 0,
+        global: 1,
+        perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      },
+    })!;
+
+    const merged = mergePrefs(makeConfig(), sanitized);
+
+    // Reproduces the review's exact repro: 10 sequential evaluate() calls
+    // against the merged (post-sync) rateLimit. If window had reached
+    // evaluate() as 0 (unclamped), rollIfExpired would reset state to
+    // all-zero on every call and all 10 would deliver.
+    // Steps of 0.1s so all 10 calls land within the same clamped 1s
+    // (MIN_WINDOW_SECONDS) window -- proving real accumulation, not just
+    // "didn't crash". (Stepping by a full 1s per call would itself hit the
+    // `now - windowStart < windowSeconds` equality boundary every time at
+    // windowSeconds===1, rolling on every call for an unrelated reason.)
+    let state = createRateLimitState(1000);
+    let delivered = 0;
+    for (let i = 0; i < 10; i++) {
+      const result = evaluate(state, "replies", 1000 + i * 0.1, merged.rateLimit);
+      state = result.state;
+      if (result.deliver) delivered++;
+    }
+
+    expect(delivered).toBe(1);
+    expect(delivered).not.toBe(10);
   });
 });
 

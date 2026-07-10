@@ -4,6 +4,15 @@ import { nanoid } from "nanoid";
 import { BehaviorSubject, map, Observable, skip } from "rxjs";
 import { CACHI_GROUP_LINK, DEFAULT_LOOKUP_RELAYS } from "../const";
 import type { GroupNotificationMode } from "../helpers/groups";
+// clampWindowSeconds is imported from the zero-dependency
+// rate-limit-accounting.ts (NOT services/rate-limit.ts) deliberately --
+// services/rate-limit.ts imports configValue/getConfig FROM this file and
+// runs a top-level flush-timer subscription at import time, so importing it
+// back here would create a circular module dependency (this file would
+// start executing services/rate-limit.ts's body -- including that
+// subscription, which reads `config$` -- before this file's own `config$`
+// binding is initialized).
+import { clampWindowSeconds } from "./rate-limit-accounting";
 
 export type AppConfig = {
   /** The hex pubkey of the user */
@@ -291,8 +300,19 @@ export function migrateConfig(parsed: any): any {
   if (parsed.rateLimit == null || typeof parsed.rateLimit !== "object") {
     parsed.rateLimit = structuredClone(DEFAULT_RATE_LIMIT_CONFIG);
   } else {
-    if (!isValidNonNegativeNumber(parsed.rateLimit.window))
-      parsed.rateLimit.window = DEFAULT_RATE_LIMIT_CONFIG.window;
+    // CR-01 (iteration 2): unlike global/perType, 0 is NEVER a valid
+    // "unlimited" value for window -- an accepted numeric window
+    // (including an explicit 0, negative-clamped-up, or excessively large
+    // value) is additionally passed through clampWindowSeconds so a
+    // degenerate stored window (e.g. a hand-edited config.json, or a
+    // pre-fix config written before this clamp existed) can never reach
+    // rollIfExpired()/evaluate() and silently disable rate limiting. A
+    // missing/invalid window still falls back to
+    // DEFAULT_RATE_LIMIT_CONFIG.window (60s), which is already in-range,
+    // so this is a no-op for that path.
+    if (isValidNonNegativeNumber(parsed.rateLimit.window))
+      parsed.rateLimit.window = clampWindowSeconds(parsed.rateLimit.window);
+    else parsed.rateLimit.window = DEFAULT_RATE_LIMIT_CONFIG.window;
     if (!isValidNonNegativeNumber(parsed.rateLimit.global))
       parsed.rateLimit.global = DEFAULT_RATE_LIMIT_CONFIG.global;
 

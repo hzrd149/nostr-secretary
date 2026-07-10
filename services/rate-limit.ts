@@ -34,34 +34,26 @@ import { configValue, getConfig } from "./config";
 import { log } from "./logs";
 import { sendNotification } from "./ntfy";
 import {
+  clampWindowSeconds,
   createRateLimitState,
   evaluate,
   flushOverflow,
+  MAX_WINDOW_SECONDS,
+  MIN_WINDOW_SECONDS,
   type NotificationType,
   type RateLimitState,
 } from "./rate-limit-accounting";
 
-/** Minimum/maximum bounds (seconds) enforced on the flush timer's *effective*
- * window, regardless of what `config.rateLimit.window` contains. Unlike
- * `global`/`perType`, `0` is NEVER "unlimited" for `window` -- it would
- * otherwise degenerate `interval(cfg.window * 1000)` into `interval(0)`, an
- * unbounded ~930-tick/sec busy loop (CR-02). The upper bound guards against
- * `window * 1000` overflowing the 32-bit signed `setTimeout` delay that
- * rxjs's `asyncScheduler` uses under the hood (~24.8 days, WR-02). */
-export const MIN_WINDOW_SECONDS = 1;
-export const MAX_WINDOW_SECONDS = 86400;
-
-/** Clamps an arbitrary `window` value (including `0`, negative, `NaN`, or
- * excessively large numbers) into the safe `[MIN_WINDOW_SECONDS,
- * MAX_WINDOW_SECONDS]` range used to build the flush timer's interval.
- * Applied at the timer regardless of input surface (PATCH route,
- * `migrateConfig` backfill, NIP-78 preference sync) so the flush can never
- * busy-loop or overflow the timer delay, no matter how a degenerate value
- * reached `config.rateLimit.window`. */
-export function clampWindowSeconds(window: number): number {
-  if (!Number.isFinite(window)) return MIN_WINDOW_SECONDS;
-  return Math.min(MAX_WINDOW_SECONDS, Math.max(MIN_WINDOW_SECONDS, window));
-}
+// Re-exported for this module's existing callers (the flush timer below,
+// pages/notifications.tsx's PATCH handler + UI bounds, and
+// tests/services/rate-limit.test.ts) -- the canonical definitions now live
+// in the zero-dependency services/rate-limit-accounting.ts so
+// services/config.ts and helpers/preferences.ts can also import them (at
+// the config-normalization and NIP-78-sync input surfaces, CR-01 iteration
+// 2) without creating a circular module dependency back through this
+// file's top-level flush-timer subscription (which depends on
+// services/config.ts).
+export { clampWindowSeconds, MAX_WINDOW_SECONDS, MIN_WINDOW_SECONDS };
 
 /** Module-level rate-limit state for the current tumbling window. Reassigned
  * immutably on every call to evaluate()/flushOverflow() -- never mutated in
@@ -96,6 +88,15 @@ type InjectedDeps = {
  * Otherwise the notification is accumulated into per-type overflow for the
  * grouped summary and NOT sent -- accumulation is logged via `log()` (never
  * `console.log`), and the log never includes `options.message` (D6-10).
+ *
+ * `rateLimit.window` is defensively re-clamped via `clampWindowSeconds`
+ * immediately before `evaluate()` (belt-and-suspenders, CR-01 iteration 2):
+ * the REQUIRED fix is clamping at every config-normalization input surface
+ * (services/config.ts's `migrateConfig`, helpers/preferences.ts's
+ * `asRateLimit`) so a degenerate window can never enter `config$` in the
+ * first place, but clamping again here means this choke point stays
+ * correct even against a hypothetical future input surface that forgets
+ * to.
  */
 export async function rateLimitedNotify(
   type: NotificationType,
@@ -106,7 +107,10 @@ export async function rateLimitedNotify(
   const effectiveSend = send ?? sendNotification;
   const { rateLimit } = getConfig();
 
-  const result = evaluate(state, type, effectiveNow, rateLimit);
+  const result = evaluate(state, type, effectiveNow, {
+    ...rateLimit,
+    window: clampWindowSeconds(rateLimit.window),
+  });
   state = result.state;
 
   if (result.deliver) {

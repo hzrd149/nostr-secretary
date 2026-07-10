@@ -1,4 +1,9 @@
 import { DEFAULT_RATE_LIMIT_CONFIG, type AppConfig } from "../services/config";
+// clampWindowSeconds lives in the zero-dependency rate-limit-accounting.ts
+// (not services/rate-limit.ts) specifically so it can be imported here
+// without pulling in services/rate-limit.ts's top-level flush-timer
+// subscription/module-level state as a side effect.
+import { clampWindowSeconds } from "../services/rate-limit-accounting";
 import { isGroupNotificationMode, type GroupNotificationMode } from "./groups";
 
 /**
@@ -201,6 +206,15 @@ function asMessagesCategories(raw: Record<string, unknown>): {
  * safe local defaults, or a rolling multi-device upgrade would silently
  * disable rate limiting the moment an upgraded device applies an
  * un-upgraded peer's synced payload (RESEARCH Pitfall 6 / T-6-04).
+ *
+ * `window` additionally passes through `clampWindowSeconds` on top of
+ * `asNonNegativeInt` (CR-01 iteration 2): unlike `global`/`perType`, `0` is
+ * NEVER a valid "unlimited" window, so a synced payload from another
+ * device or a third-party interoperating app that publishes
+ * `rateLimit.window: 0` can never disable this device's rate limiting --
+ * it is clamped up to `MIN_WINDOW_SECONDS` instead. `asNonNegativeInt`'s
+ * own fallback (`DEFAULT_RATE_LIMIT_CONFIG.window`) is already in-range, so
+ * clamping is a no-op for the missing/malformed-input path.
  */
 function asRateLimit(raw: Record<string, unknown>): SyncedPrefs["rateLimit"] {
   const rateLimit = raw.rateLimit;
@@ -211,7 +225,9 @@ function asRateLimit(raw: Record<string, unknown>): SyncedPrefs["rateLimit"] {
   const perType = (source.perType ?? {}) as Record<string, unknown>;
 
   return {
-    window: asNonNegativeInt(source.window, DEFAULT_RATE_LIMIT_CONFIG.window),
+    window: clampWindowSeconds(
+      asNonNegativeInt(source.window, DEFAULT_RATE_LIMIT_CONFIG.window),
+    ),
     global: asNonNegativeInt(source.global, DEFAULT_RATE_LIMIT_CONFIG.global),
     perType: {
       replies: asNonNegativeInt(

@@ -5,6 +5,11 @@ import config$, {
   getConfig,
   migrateConfig,
 } from "../../services/config";
+import {
+  evaluate,
+  createRateLimitState,
+  MIN_WINDOW_SECONDS,
+} from "../../services/rate-limit-accounting";
 
 // services/config.ts reads Bun.env.CONFIG at import time (top-level await
 // fs.exists(CONFIG_PATH)), and Bun shares one module cache across every file
@@ -335,5 +340,56 @@ describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () =>
     expect(migrated.rateLimit.perType.replies).toBe(
       DEFAULT_RATE_LIMIT_CONFIG.perType.replies,
     );
+  });
+
+  // CR-01 (iteration 2): unlike global/perType, an explicit `window: 0` is
+  // NOT a "missing" value (it passes the isValidNonNegativeNumber guard, so
+  // WR-03's NaN/negative backfill-to-default never fires for it) -- but it
+  // is also never a valid "unlimited" window. Without a dedicated clamp, a
+  // hand-edited/legacy config.json with `rateLimit.window: 0` would sail
+  // straight through migrateConfig and reach rollIfExpired()/evaluate()
+  // unclamped, silently disabling rate limiting entirely (the bug this
+  // finding is about).
+  test("CR-01 (iter 2): an explicit window:0 from a hand-edited config.json is clamped up to MIN_WINDOW_SECONDS, not passed through as 0", () => {
+    const migrated = migrateConfig({
+      rateLimit: { window: 0, global: 1, perType: { replies: 1, zaps: 5, messages: 5, groups: 5 } },
+    });
+
+    expect(migrated.rateLimit.window).toBe(MIN_WINDOW_SECONDS);
+    expect(migrated.rateLimit.window).not.toBe(0);
+    // global/perType 0-as-unlimited semantics are untouched by this fix.
+    expect(migrated.rateLimit.perType.replies).toBe(1);
+  });
+
+  test("CR-01 (iter 2): migrateConfig's clamped window:0 config actually prevents evaluate() from resetting state on every call -- 1 of 10 delivered, not 10 of 10", () => {
+    const migrated = migrateConfig({
+      rateLimit: {
+        window: 0,
+        global: 1,
+        perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      },
+    });
+
+    // Simulate the exact silent-failure mode the review reproduced: if
+    // `window` reached evaluate() as 0 (unclamped), rollIfExpired's
+    // `now - windowStart < windowSeconds` (`< 0`) would be false on every
+    // call, resetting state to all-zero before every check, so all 10
+    // calls would deliver. With migrateConfig's clamp applied, only the
+    // first delivers and the rest accumulate as overflow.
+    // Steps of 0.1s so all 10 calls land within the same clamped 1s
+    // (MIN_WINDOW_SECONDS) window -- proving real accumulation, not just
+    // "didn't crash". (Stepping by a full 1s per call would itself hit the
+    // `now - windowStart < windowSeconds` equality boundary every time at
+    // windowSeconds===1, rolling on every call for an unrelated reason.)
+    let state = createRateLimitState(1000);
+    let delivered = 0;
+    for (let i = 0; i < 10; i++) {
+      const result = evaluate(state, "replies", 1000 + i * 0.1, migrated.rateLimit);
+      state = result.state;
+      if (result.deliver) delivered++;
+    }
+
+    expect(delivered).toBe(1);
+    expect(delivered).not.toBe(10);
   });
 });

@@ -207,6 +207,39 @@ describe("runFlush -- one combined counts-only summary (D6-05)", () => {
   });
 });
 
+describe("rateLimitedNotify -- CR-01 (iteration 2): defensive window:0 clamp at the choke point", () => {
+  test("even if config$.rateLimit.window somehow holds a degenerate 0 (bypassing the config.ts/preferences.ts source clamps), rateLimitedNotify still rate-limits -- 1 of 10 delivered, not 10 of 10", async () => {
+    resetRateLimitState(6000);
+    // Deliberately writes window:0 directly to config$ -- config$.next()
+    // performs no validation itself, so this simulates ANY future input
+    // surface that forgot to clamp before reaching config$, exercising
+    // rateLimitedNotify's own belt-and-suspenders clampWindowSeconds call
+    // rather than the source-level fixes in migrateConfig/asRateLimit.
+    setRateLimit({
+      window: 0,
+      global: 1,
+      perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+    });
+    const { send, calls } = fakeSend();
+
+    // Steps of 0.1s so all 10 calls land within the same clamped 1s
+    // (MIN_WINDOW_SECONDS) window -- proving real accumulation, not just
+    // "didn't crash". (Stepping by a full 1s per call would itself hit the
+    // `now - windowStart < windowSeconds` equality boundary every time at
+    // windowSeconds===1, rolling on every call for an unrelated reason.)
+    for (let i = 0; i < 10; i++) {
+      await rateLimitedNotify(
+        "replies",
+        { title: `r${i}`, message: `m${i}` },
+        { now: 6000 + i * 0.1, send },
+      );
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls).not.toHaveLength(10);
+  });
+});
+
 describe("runFlush -- bypasses rateLimitedNotify entirely (D6-06)", () => {
   test("the flush's own injected send still fires while the per-type bucket remains saturated, proving it never routes back through rateLimitedNotify", async () => {
     resetRateLimitState(5000);
