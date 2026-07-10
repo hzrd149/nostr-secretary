@@ -277,12 +277,23 @@ export function migrateConfig(parsed: any): any {
   // already set -- INCLUDING an explicit 0 (0 is a valid "unlimited", not a
   // missing value, so `?? `/`||` must not be used here). Idempotent -- a
   // complete rateLimit passes through with no field overwritten.
+  // WR-03: use the SAME non-negative-int guard as helpers/preferences.ts's
+  // asNonNegativeInt and the /notifications PATCH route, not just
+  // `typeof === "number"` -- a bare typeof check accepts NaN (`typeof NaN
+  // === "number"`) and negative numbers, both of which would otherwise
+  // reach the flush timer/evaluate() untouched (NaN * 1000 isn't clamped by
+  // rxjs's `interval`, and a negative global/perType permanently seals that
+  // gate shut). All three rateLimit input surfaces (config load, NIP-78
+  // sync, PATCH) must validate consistently.
+  const isValidNonNegativeNumber = (v: unknown): v is number =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0;
+
   if (parsed.rateLimit == null || typeof parsed.rateLimit !== "object") {
     parsed.rateLimit = structuredClone(DEFAULT_RATE_LIMIT_CONFIG);
   } else {
-    if (typeof parsed.rateLimit.window !== "number")
+    if (!isValidNonNegativeNumber(parsed.rateLimit.window))
       parsed.rateLimit.window = DEFAULT_RATE_LIMIT_CONFIG.window;
-    if (typeof parsed.rateLimit.global !== "number")
+    if (!isValidNonNegativeNumber(parsed.rateLimit.global))
       parsed.rateLimit.global = DEFAULT_RATE_LIMIT_CONFIG.global;
 
     if (
@@ -296,7 +307,7 @@ export function migrateConfig(parsed: any): any {
       for (const key of Object.keys(
         DEFAULT_RATE_LIMIT_CONFIG.perType,
       ) as (keyof AppConfig["rateLimit"]["perType"])[]) {
-        if (typeof parsed.rateLimit.perType[key] !== "number")
+        if (!isValidNonNegativeNumber(parsed.rateLimit.perType[key]))
           parsed.rateLimit.perType[key] = DEFAULT_RATE_LIMIT_CONFIG.perType[key];
       }
     }
