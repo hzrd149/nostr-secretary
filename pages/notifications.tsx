@@ -8,6 +8,7 @@ import * as repliesNotification from "../notifications/replies";
 import * as zapsNotification from "../notifications/zaps";
 import * as groupsNotification from "../notifications/groups";
 import config$ from "../services/config";
+import { MAX_WINDOW_SECONDS, MIN_WINDOW_SECONDS } from "../services/rate-limit";
 import { summarizeGroupModes } from "../helpers/groups";
 import { enabled$ as prefsSyncEnabled$ } from "../services/preferences";
 
@@ -457,12 +458,15 @@ export async function NotificationsView() {
                 type="number"
                 id="rateLimitWindow"
                 data-bind="rateLimitWindow"
-                min="0"
+                min={String(MIN_WINDOW_SECONDS)}
+                max={String(MAX_WINDOW_SECONDS)}
                 value={String(currentConfig.rateLimit.window)}
               />
               <div class="help-text">
                 Window duration in seconds shared by the global and per-type
-                limits. 0 = unlimited.
+                limits. Unlike the limits above, 0 is NOT valid here -- the
+                window must be between {MIN_WINDOW_SECONDS} and{" "}
+                {MAX_WINDOW_SECONDS} seconds.
               </div>
             </div>
 
@@ -526,9 +530,16 @@ const route = {
           Number.isFinite(rawRateLimitGlobal) && rawRateLimitGlobal >= 0
             ? Math.floor(rawRateLimitGlobal)
             : currentConfig.rateLimit.global;
+        // CR-02/WR-02: unlike global/perType, 0 is NEVER "unlimited" for
+        // window -- clamp into [MIN_WINDOW_SECONDS, MAX_WINDOW_SECONDS] so a
+        // submitted 0 (or a fat-fingered huge value) can never reach the
+        // flush timer as a degenerate window.
         const rateLimitWindow =
           Number.isFinite(rawRateLimitWindow) && rawRateLimitWindow >= 0
-            ? Math.floor(rawRateLimitWindow)
+            ? Math.min(
+                MAX_WINDOW_SECONDS,
+                Math.max(MIN_WINDOW_SECONDS, Math.floor(rawRateLimitWindow)),
+              )
             : currentConfig.rateLimit.window;
 
         // Update config -- merge global/window at the rateLimit top level

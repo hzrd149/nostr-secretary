@@ -29,7 +29,7 @@
  * without relying on a mutated singleton persisting across the shared
  * `bun test` module cache (RESEARCH Pitfall 2).
  */
-import { interval, switchMap } from "rxjs";
+import { distinctUntilChanged, interval, map, switchMap } from "rxjs";
 import { configValue, getConfig } from "./config";
 import { log } from "./logs";
 import { sendNotification } from "./ntfy";
@@ -40,6 +40,28 @@ import {
   type NotificationType,
   type RateLimitState,
 } from "./rate-limit-accounting";
+
+/** Minimum/maximum bounds (seconds) enforced on the flush timer's *effective*
+ * window, regardless of what `config.rateLimit.window` contains. Unlike
+ * `global`/`perType`, `0` is NEVER "unlimited" for `window` -- it would
+ * otherwise degenerate `interval(cfg.window * 1000)` into `interval(0)`, an
+ * unbounded ~930-tick/sec busy loop (CR-02). The upper bound guards against
+ * `window * 1000` overflowing the 32-bit signed `setTimeout` delay that
+ * rxjs's `asyncScheduler` uses under the hood (~24.8 days, WR-02). */
+export const MIN_WINDOW_SECONDS = 1;
+export const MAX_WINDOW_SECONDS = 86400;
+
+/** Clamps an arbitrary `window` value (including `0`, negative, `NaN`, or
+ * excessively large numbers) into the safe `[MIN_WINDOW_SECONDS,
+ * MAX_WINDOW_SECONDS]` range used to build the flush timer's interval.
+ * Applied at the timer regardless of input surface (PATCH route,
+ * `migrateConfig` backfill, NIP-78 preference sync) so the flush can never
+ * busy-loop or overflow the timer delay, no matter how a degenerate value
+ * reached `config.rateLimit.window`. */
+export function clampWindowSeconds(window: number): number {
+  if (!Number.isFinite(window)) return MIN_WINDOW_SECONDS;
+  return Math.min(MAX_WINDOW_SECONDS, Math.max(MIN_WINDOW_SECONDS, window));
+}
 
 /** Module-level rate-limit state for the current tumbling window. Reassigned
  * immutably on every call to evaluate()/flushOverflow() -- never mutated in
@@ -123,11 +145,27 @@ export async function runFlush({ now, send }: InjectedDeps = {}): Promise<void> 
 }
 
 // Config-driven flush timer (D6-05): configValue("rateLimit") + switchMap
-// automatically cancels the old interval and starts a new one whenever
-// config.rateLimit.window changes, consistent with every other config-driven
-// observable in this codebase (e.g. services/nostr.ts's shareAndHold).
+// cancels the old interval and starts a new one only when the *effective*
+// window actually changes (CR-01) -- NOT on every config$ write. config$ is
+// a single BehaviorSubject shared by every settings surface in the app
+// (replies/zaps/messages/groups toggles, whitelist/blacklist edits, the
+// /config page, and inbound NIP-78 preference sync), so without
+// distinctUntilChanged here, any unrelated write would restart the flush
+// countdown from zero and could starve the grouped-overflow summary
+// indefinitely (D6-05 "fires at least once per window" violated). Keying on
+// clampWindowSeconds(cfg.window) rather than the raw value also means a
+// config write that only changes some *other* field never re-triggers this
+// pipeline, since the projected value is unchanged.
 configValue("rateLimit")
-  .pipe(switchMap((cfg) => interval(cfg.window * 1000)))
+  .pipe(
+    map((cfg) => clampWindowSeconds(cfg.window)),
+    distinctUntilChanged(),
+    switchMap((window) => interval(window * 1000)),
+  )
   .subscribe(() => {
-    void runFlush();
+    runFlush().catch((error) =>
+      log("Failed to deliver grouped overflow summary", {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
   });
