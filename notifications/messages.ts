@@ -26,6 +26,7 @@ import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
 import { classifyDmSender } from "./dm-category";
+import { evaluateDmNotificationGates } from "./dm-notification-gate";
 import { unlockPrivateDirectMessage } from "./gift-wrap-messages";
 import {
   decryptLegacyDirectMessage,
@@ -192,18 +193,27 @@ enabledSigner
       });
     }
     const category = classifyDmSender(isFollowed);
-    if (!messages[category].enabled)
-      return log("Skipping notification: category disabled", {
-        sender,
-        category,
-      });
 
-    // Check if we should notify for this sender
-    if (!(await shouldNotify(sender)))
+    // D5-07 layered gate (category, then shouldNotify), extracted so the
+    // real gate ordering has direct test coverage (WR-02) -- see
+    // notifications/dm-notification-gate.ts.
+    const gate = await evaluateDmNotificationGates(
+      category,
+      messages,
+      sender,
+      shouldNotify,
+    );
+    if (!gate.pass) {
+      if (gate.reason === "category-disabled")
+        return log("Skipping notification: category disabled", {
+          sender,
+          category,
+        });
       return log(
         "Skipping notification for blacklisted/non-whitelisted sender",
         { sender },
       );
+    }
 
     // Use the shared fallback-aware helper (WR-01): `profile` may be
     // `undefined` here on purpose (a swallowed profile-lookup timeout), and
@@ -272,20 +282,29 @@ enabledSigner
       });
     }
     const category = classifyDmSender(isFollowed);
-    if (!messages[category].enabled)
-      return log("Skipping notification: category disabled", {
-        sender,
-        category,
-      });
 
-    // Check if we should notify for this sender
-    if (!(await shouldNotify(sender)))
+    // D5-07 layered gate (category, then shouldNotify), extracted so the
+    // real gate ordering has direct test coverage (WR-02) -- see
+    // notifications/dm-notification-gate.ts.
+    const gate = await evaluateDmNotificationGates(
+      category,
+      messages,
+      sender,
+      shouldNotify,
+    );
+    if (!gate.pass) {
+      if (gate.reason === "category-disabled")
+        return log("Skipping notification: category disabled", {
+          sender,
+          category,
+        });
       return log(
         "Skipping notification for blacklisted/non-whitelisted sender",
         {
           sender,
         },
       );
+    }
 
     // A profile-lookup timeout must never throw into this subscribe
     // callback nor render a literal "undefined" title (parity with the

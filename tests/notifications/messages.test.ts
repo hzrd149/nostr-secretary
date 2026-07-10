@@ -5,6 +5,7 @@ import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { kinds, type NostrEvent } from "nostr-tools";
 
 import { classifyDmSender } from "../../notifications/dm-category";
+import { evaluateDmNotificationGates } from "../../notifications/dm-notification-gate";
 
 // NOTE: This file intentionally does NOT import notifications/messages.ts
 // (or the notifications/index.ts barrel). That module self-subscribes to
@@ -14,20 +15,32 @@ import { classifyDmSender } from "../../notifications/dm-category";
 // it here would risk real network I/O. Instead:
 //  - the NIP-04 decrypt coverage below calls applesauce's real, exported
 //    `unlockLegacyMessage` directly against a manually-built kind-4 event
-//    and a PrivateKeySigner fixture (no app code involved at all), and
+//    and a PrivateKeySigner fixture (no app code involved at all),
 //  - the shouldNotify gate-order coverage below is a LOCAL mirror function
 //    that reproduces the exact gate order implemented in
 //    notifications/messages.ts (lines ~41-69): isMuted -> per-section
 //    blacklist -> per-section whitelist -> global whitelist -> global
-//    blacklist.
+//    blacklist, and
+//  - the D5-07 category-gate-then-shouldNotify ORDERING (which stage runs
+//    first) is now covered against the REAL production function, not a
+//    mirror (WR-02): `evaluateDmNotificationGates`
+//    (notifications/dm-notification-gate.ts) is the exact function both DM
+//    listeners in notifications/messages.ts call. It has zero runtime
+//    dependency on services/nostr.ts (only a type-only AppConfig import,
+//    erased at compile time), and takes `shouldNotify` as an injected
+//    argument, so importing and calling it directly here is network-safe
+//    while still exercising the real wiring instead of a hand-written copy.
 //
-// TODO(WR-04, tracked follow-up, matches groups.test.ts's caveat): this
-// mirror only covers the gate-order logic in isolation -- it has zero
-// coverage of the actual wiring in notifications/messages.ts's
-// `.subscribe()` callback, so a future change that reorders the gates or
-// drops a check would keep this suite green while regressing production
-// behavior. All inputs below are plain, injected arrays/sets -- no pubkey
-// is read from a live AppConfig and no list is loaded over the network.
+// TODO(WR-04, tracked follow-up, matches groups.test.ts's caveat): the
+// `shouldNotify` function itself (isMuted -> blacklist -> whitelist gate
+// internals) still only has mirror coverage below -- it reads from
+// services/nostr.ts singletons and getConfig(), so it cannot be imported
+// directly without the same self-subscription risk as notifications/
+// messages.ts itself. Only the D5-07 gate ORDER around it (category gate,
+// then shouldNotify) has been upgraded to real-function coverage via
+// evaluateDmNotificationGates above. All inputs below are plain, injected
+// arrays/sets/stubs -- no pubkey is read from a live AppConfig and no list
+// is loaded over the network.
 
 describe("unlockLegacyMessage (NIP-04)", () => {
   test("decrypts a kind-4 event addressed to self via a PrivateKeySigner round-trip", async () => {
@@ -195,6 +208,85 @@ describe("shouldNotify gate order mirror (D3-09)", () => {
 
   test("no lists configured allows everyone", () => {
     expect(decide(sender, {})).toBe(true);
+  });
+});
+
+describe("evaluateDmNotificationGates -- REAL production gate ordering (D5-07, WR-02)", () => {
+  // Unlike the mirror-based describe blocks in this file, this block
+  // imports and directly exercises `evaluateDmNotificationGates`, the exact
+  // function both notifications/messages.ts DM listeners call to decide
+  // "category gate, then shouldNotify" (see notifications/dm-notification-
+  // gate.ts). It is safe to import here because that module has zero
+  // runtime dependency on services/nostr.ts's self-subscribing singletons
+  // (only a type-only import of AppConfig) -- `shouldNotify` itself is
+  // injected as a plain stub below, so no network I/O or live config is
+  // ever touched. A future change that reorders the gates, drops the
+  // category check, or short-circuits shouldNotify would fail the tests
+  // below (WR-02) -- unlike the hand-written mirrors, this is the actual
+  // production code path.
+  const senderSecretKey = generateSecretKey();
+  const sender = getPublicKey(senderSecretKey);
+
+  const messages = (contactsEnabled: boolean, othersEnabled: boolean) => ({
+    contacts: { enabled: contactsEnabled },
+    others: { enabled: othersEnabled },
+  });
+
+  test("category-disabled short-circuits BEFORE shouldNotify is even called", async () => {
+    let shouldNotifyCalled = false;
+    const shouldNotify = async () => {
+      shouldNotifyCalled = true;
+      return true;
+    };
+
+    const result = await evaluateDmNotificationGates(
+      "contacts",
+      messages(false, true),
+      sender,
+      shouldNotify,
+    );
+
+    expect(result).toEqual({ pass: false, reason: "category-disabled" });
+    // Proves the ORDER, not just the outcome: shouldNotify must never run
+    // once the category gate has already rejected the sender.
+    expect(shouldNotifyCalled).toBe(false);
+  });
+
+  test("category enabled + shouldNotify true -> passes", async () => {
+    const result = await evaluateDmNotificationGates(
+      "contacts",
+      messages(true, false),
+      sender,
+      async () => true,
+    );
+
+    expect(result).toEqual({ pass: true });
+  });
+
+  test("category enabled + shouldNotify false -> blocked with not-whitelisted reason", async () => {
+    const result = await evaluateDmNotificationGates(
+      "others",
+      messages(false, true),
+      sender,
+      async () => false,
+    );
+
+    expect(result).toEqual({ pass: false, reason: "not-whitelisted" });
+  });
+
+  test("shouldNotify receives the exact sender pubkey passed in", async () => {
+    let receivedPubkey: string | undefined;
+    await evaluateDmNotificationGates(
+      "others",
+      messages(true, true),
+      sender,
+      async (pubkey) => {
+        receivedPubkey = pubkey;
+        return true;
+      },
+    );
+
+    expect(receivedPubkey).toBe(sender);
   });
 });
 
