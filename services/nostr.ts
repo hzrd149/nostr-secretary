@@ -17,6 +17,7 @@ import {
   hasHiddenTags,
   mergeRelaySets,
   unixNow,
+  type ProfilePointer,
 } from "applesauce-core/helpers";
 import {
   createEventLoaderForStore,
@@ -330,6 +331,37 @@ export async function isMuted(pubkey: string): Promise<boolean> {
     ),
   );
   return muted.has(pubkey);
+}
+
+/**
+ * An observable of the user's kind-3 NIP-02 follow list (contacts). Kind 3 is
+ * not in applesauce's HiddenTagsKinds, so `eventStore.contacts()` never
+ * attempts a hidden-tag decrypt -- unlike `mutedPubkeys$`, this has NO signer
+ * dependency, so a read-only (no-signer) user still gets full, correct
+ * contacts classification (D5-01, Pitfall 1). Re-emits reactively whenever
+ * the user's follow list changes -- never snapshotted once at boot (D5-03).
+ */
+export const contacts$ = user$.pipe(
+  switchMap((user) => eventStore.contacts(user)),
+  shareAndHold(),
+);
+
+/**
+ * Returns true if the user follows the given pubkey (i.e. the pubkey is in
+ * the user's kind-3 follow list). Falls back to `false` if the follow list
+ * cannot be loaded within 2 seconds, mirroring `isMuted`'s timeout idiom --
+ * this IS the D5-02 "unavailable -> others" fallback: an unresolved follow
+ * list and a genuine non-follow both resolve to `false`, with no special-case
+ * code needed.
+ */
+export async function isContact(pubkey: string): Promise<boolean> {
+  const contacts = await firstValueFrom(
+    // Fall back to an empty list if the follow list cannot be loaded in time
+    contacts$.pipe(
+      timeout({ first: 2000, with: () => of([] as ProfilePointer[]) }),
+    ),
+  );
+  return contacts.some((c) => c.pubkey === pubkey);
 }
 
 /** An observable that loads the users people lists */
