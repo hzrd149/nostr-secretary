@@ -26,6 +26,7 @@ import { loadLists } from "../helpers/lists";
 import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
+import { decryptLegacyDirectMessage } from "./legacy-messages";
 import {
   blacklist$,
   eventStore,
@@ -121,35 +122,26 @@ enabledSigner
           if (!sender) return EMPTY;
 
           return from(
-            (async () => {
+            decryptLegacyDirectMessage(event, pubkey, sender, signer, {
               // A profile-lookup failure (e.g. getValue's 5s timeout when
-              // the sender's kind-0 hasn't loaded yet) is NOT a decrypt
-              // failure -- swallow it here so the shared catchError below
-              // only ever fires for an actual unlockLegacyMessage failure
-              // (WR-01). Fall back to an undefined profile rather than
-              // failing the whole pipeline.
-              const profile = await getValue(
-                eventStore.profile(sender).pipe(defined()),
-              ).catch(() => undefined);
-
-              log("Unlocking legacy message", {
-                event: event.id,
-                sender,
-                signer: signer.pubkey,
-              });
-
-              // Only this throw should flip nip04DecryptDegraded$ -- it's
-              // the sole await left in this IIFE after the profile lookup
-              // above absorbed its own failures.
-              const content = await unlockLegacyMessage(event, pubkey, signer);
-              if (!content) return undefined;
-
-              // Decrypt succeeded -- clear any previously-set reconnect hint.
-              nip04DecryptDegraded$.next(false);
-
-              return { sender, profile, content, event };
-            })(),
+              // the sender's kind-0 hasn't loaded yet) is swallowed inside
+              // decryptLegacyDirectMessage -- it is NOT a decrypt failure
+              // and must not reach the catchError below (WR-01).
+              getProfile: (sender) =>
+                getValue(eventStore.profile(sender).pipe(defined())),
+              unlock: unlockLegacyMessage,
+              log,
+            }),
           ).pipe(
+            map((result) => {
+              // Decrypt succeeded with content -- clear any previously-set
+              // reconnect hint. (A falsy result means unlockLegacyMessage
+              // resolved without throwing but yielded empty content --
+              // not a decrypt failure, but also not treated as a
+              // hint-clearing success, matching pre-WR-04 behavior.)
+              if (result) nip04DecryptDegraded$.next(false);
+              return result;
+            }),
             catchError((error) => {
               log("Failed to unlock legacy message", {
                 event: event.id,
@@ -160,7 +152,8 @@ enabledSigner
               // reconnect-hint-worthy (no standardized NIP-46
               // permission-denied error code to string-match against).
               // Profile-lookup failures no longer reach this catchError
-              // (see above), so this only fires for actual decrypt errors.
+              // (see decryptLegacyDirectMessage), so this only fires for
+              // actual decrypt errors (WR-01).
               nip04DecryptDegraded$.next(true);
               return EMPTY;
             }),
