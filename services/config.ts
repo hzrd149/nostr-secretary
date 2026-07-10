@@ -56,6 +56,22 @@ export type AppConfig = {
      *  Groups with no entry fall back to DEFAULT_GROUP_NOTIFICATION_MODE (D-06/D-10). */
     modes: Record<string, GroupNotificationMode>;
   };
+  /** Outbound-notification rate limiting: a global bucket AND a per-type
+   *  bucket over a shared sliding/tumbling `window` (seconds). A limit of 0
+   *  means unlimited for that field (D6-07/D6-09). */
+  rateLimit: {
+    /** Window duration in seconds shared by the global and per-type buckets. */
+    window: number;
+    /** Global notifications-per-window cap across all types. 0 = unlimited. */
+    global: number;
+    /** Per-type notifications-per-window caps. 0 = unlimited for that type. */
+    perType: {
+      replies: number;
+      zaps: number;
+      messages: number;
+      groups: number;
+    };
+  };
 };
 
 /**
@@ -74,6 +90,24 @@ export const DEFAULT_MESSAGES_CONFIG: AppConfig["messages"] = {
   sendContent: false,
   whitelists: [],
   blacklists: [],
+};
+
+/**
+ * D6-09 anti-spam defaults for outbound-notification rate limiting: a 60s
+ * window, a global cap of 20 notifications per window, and a per-type cap
+ * of 5 per window for each of the four coarse types (replies/zaps/messages/
+ * groups). A limit of `0` means unlimited (disabled) for that field, so
+ * users can turn rate limiting off per-type or globally. New installs seed
+ * `config$` from this constant; `migrateConfig` backfills it (defensively,
+ * per-sub-field) for existing configs so the behavior change is additive,
+ * never surprising (see CHANGELOG). Exported so tests and the sync-side
+ * absent-key fallback (helpers/preferences.ts, RESEARCH Pitfall 6) can
+ * reference it directly rather than duplicating the literal shape.
+ */
+export const DEFAULT_RATE_LIMIT_CONFIG: AppConfig["rateLimit"] = {
+  window: 60,
+  global: 20,
+  perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
 };
 
 const config$ = new BehaviorSubject<AppConfig>({
@@ -100,6 +134,7 @@ const config$ = new BehaviorSubject<AppConfig>({
     groupLink: CACHI_GROUP_LINK,
     modes: {},
   },
+  rateLimit: DEFAULT_RATE_LIMIT_CONFIG,
 });
 
 const CONFIG_PATH = Bun.env.CONFIG ?? "config.json";
@@ -228,6 +263,43 @@ export function migrateConfig(parsed: any): any {
     typeof parsed.groups.modes !== "object"
   ) {
     parsed.groups.modes = {};
+  }
+
+  // Backfill rateLimit for configs written before D6-07/D6-09 shipped, the
+  // same defensive way groups.modes is backfilled above: guard a null/
+  // non-object top-level `rateLimit` first (e.g. a hand-edited
+  // `"rateLimit": null` or a stray non-object value), replacing it wholesale
+  // with a fresh structuredClone(DEFAULT_RATE_LIMIT_CONFIG) so a later
+  // config$.next() mutation can never bleed into the shared default
+  // constant. Otherwise (an object is present, possibly partial) backfill
+  // each missing/non-number top-level field and each missing/non-number
+  // perType sub-field independently, preserving any explicit value the user
+  // already set -- INCLUDING an explicit 0 (0 is a valid "unlimited", not a
+  // missing value, so `?? `/`||` must not be used here). Idempotent -- a
+  // complete rateLimit passes through with no field overwritten.
+  if (parsed.rateLimit == null || typeof parsed.rateLimit !== "object") {
+    parsed.rateLimit = structuredClone(DEFAULT_RATE_LIMIT_CONFIG);
+  } else {
+    if (typeof parsed.rateLimit.window !== "number")
+      parsed.rateLimit.window = DEFAULT_RATE_LIMIT_CONFIG.window;
+    if (typeof parsed.rateLimit.global !== "number")
+      parsed.rateLimit.global = DEFAULT_RATE_LIMIT_CONFIG.global;
+
+    if (
+      parsed.rateLimit.perType == null ||
+      typeof parsed.rateLimit.perType !== "object"
+    ) {
+      parsed.rateLimit.perType = structuredClone(
+        DEFAULT_RATE_LIMIT_CONFIG.perType,
+      );
+    } else {
+      for (const key of Object.keys(
+        DEFAULT_RATE_LIMIT_CONFIG.perType,
+      ) as (keyof AppConfig["rateLimit"]["perType"])[]) {
+        if (typeof parsed.rateLimit.perType[key] !== "number")
+          parsed.rateLimit.perType[key] = DEFAULT_RATE_LIMIT_CONFIG.perType[key];
+      }
+    }
   }
 
   return parsed;

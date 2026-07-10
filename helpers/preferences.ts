@@ -1,4 +1,4 @@
-import type { AppConfig } from "../services/config";
+import { DEFAULT_RATE_LIMIT_CONFIG, type AppConfig } from "../services/config";
 import { isGroupNotificationMode, type GroupNotificationMode } from "./groups";
 
 /**
@@ -24,8 +24,13 @@ export const PREFS_NAMESPACE = "nostr-secretary/notification-prefs";
  * detect a not-yet-upgraded peer's old-schema payload, so the bump itself is
  * a forward-compatibility marker for future schema changes rather than the
  * mechanism this particular fallback keys off of (Pitfall 5).
+ * Bumped to 3 for the D6-07 rateLimit addition -- like the D5-10 bump,
+ * `sanitizeSyncedPrefs`'s rateLimit fallback (below) keys off the absence of
+ * the `rateLimit` key itself, not this version number, so the bump is again
+ * a forward-compatibility marker rather than the fallback's detection
+ * mechanism.
  */
-export const PREFS_VERSION = 2;
+export const PREFS_VERSION = 3;
 
 /**
  * The rules-only subset of `AppConfig` that is serialized, NIP-44
@@ -53,6 +58,16 @@ export type SyncedPrefs = {
   whitelists: string[];
   blacklists: string[];
   appLink?: string;
+  rateLimit: {
+    window: number;
+    global: number;
+    perType: {
+      replies: number;
+      zaps: number;
+      messages: number;
+      groups: number;
+    };
+  };
 };
 
 /**
@@ -91,6 +106,16 @@ export function serializePrefs(config: AppConfig): SyncedPrefs {
     whitelists: config.whitelists,
     blacklists: config.blacklists,
     appLink: config.appLink,
+    rateLimit: {
+      window: config.rateLimit.window,
+      global: config.rateLimit.global,
+      perType: {
+        replies: config.rateLimit.perType.replies,
+        zaps: config.rateLimit.perType.zaps,
+        messages: config.rateLimit.perType.messages,
+        groups: config.rateLimit.perType.groups,
+      },
+    },
   };
 }
 
@@ -103,6 +128,20 @@ function asStringArray(value: unknown): string[] {
 /** Coerces an unknown value into a strict boolean (ASVS V5). */
 function asBoolean(value: unknown): boolean {
   return value === true;
+}
+
+/**
+ * Coerces an unknown value into a non-negative integer, falling back to
+ * `fallback` for anything that isn't a finite, non-negative number (ASVS
+ * V5) -- guards every synced rateLimit numeric field against a malformed/
+ * hostile decrypted payload (negative, NaN, non-numeric, string injection).
+ * Floors a valid finite float (e.g. 3.9 -> 3); `0` is a valid, preserved
+ * value (0 means "unlimited" for rateLimit fields, not "missing").
+ */
+function asNonNegativeInt(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+    return fallback;
+  return Math.floor(value);
 }
 
 /** Coerces an unknown value into a modes map, dropping keys whose value isn't a valid GroupNotificationMode (ASVS V5). */
@@ -146,6 +185,52 @@ function asMessagesCategories(raw: Record<string, unknown>): {
   return {
     contacts: { enabled: legacyEnabled },
     others: { enabled: legacyEnabled },
+  };
+}
+
+/**
+ * Coerces a raw decrypted `rateLimit` field with the Pitfall-6 inverse
+ * fallback: if `raw.rateLimit` is a non-null object (a Phase-6+ peer),
+ * coerce each numeric field independently via `asNonNegativeInt`, falling
+ * back per-field to this device's own `DEFAULT_RATE_LIMIT_CONFIG` when a
+ * field is missing/malformed. If `raw.rateLimit` is absent or not an object
+ * at all (a pre-Phase-6 peer, which never had this field), fall back to a
+ * structuredClone of the ENTIRE `DEFAULT_RATE_LIMIT_CONFIG` -- NEVER to
+ * `0`/unlimited. Unlike `asMessagesCategories`, there is no legacy
+ * predecessor field to seed from, so "absent" must map to this device's own
+ * safe local defaults, or a rolling multi-device upgrade would silently
+ * disable rate limiting the moment an upgraded device applies an
+ * un-upgraded peer's synced payload (RESEARCH Pitfall 6 / T-6-04).
+ */
+function asRateLimit(raw: Record<string, unknown>): SyncedPrefs["rateLimit"] {
+  const rateLimit = raw.rateLimit;
+  if (rateLimit === null || typeof rateLimit !== "object")
+    return structuredClone(DEFAULT_RATE_LIMIT_CONFIG);
+
+  const source = rateLimit as Record<string, unknown>;
+  const perType = (source.perType ?? {}) as Record<string, unknown>;
+
+  return {
+    window: asNonNegativeInt(source.window, DEFAULT_RATE_LIMIT_CONFIG.window),
+    global: asNonNegativeInt(source.global, DEFAULT_RATE_LIMIT_CONFIG.global),
+    perType: {
+      replies: asNonNegativeInt(
+        perType.replies,
+        DEFAULT_RATE_LIMIT_CONFIG.perType.replies,
+      ),
+      zaps: asNonNegativeInt(
+        perType.zaps,
+        DEFAULT_RATE_LIMIT_CONFIG.perType.zaps,
+      ),
+      messages: asNonNegativeInt(
+        perType.messages,
+        DEFAULT_RATE_LIMIT_CONFIG.perType.messages,
+      ),
+      groups: asNonNegativeInt(
+        perType.groups,
+        DEFAULT_RATE_LIMIT_CONFIG.perType.groups,
+      ),
+    },
   };
 }
 
@@ -199,6 +284,7 @@ export function sanitizeSyncedPrefs(value: unknown): SyncedPrefs | null {
     whitelists: asStringArray(raw.whitelists),
     blacklists: asStringArray(raw.blacklists),
     ...(typeof raw.appLink === "string" ? { appLink: raw.appLink } : {}),
+    rateLimit: asRateLimit(raw),
   };
 }
 
@@ -235,6 +321,7 @@ export function mergePrefs(
     whitelists: incoming.whitelists,
     blacklists: incoming.blacklists,
     appLink: incoming.appLink ?? current.appLink,
+    rateLimit: { ...current.rateLimit, ...incoming.rateLimit },
   };
 }
 

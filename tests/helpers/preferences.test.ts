@@ -6,7 +6,7 @@ import {
 } from "applesauce-common/helpers/app-data";
 import { unixNow } from "applesauce-core/helpers";
 import type { EventTemplate } from "applesauce-core/helpers/event";
-import type { AppConfig } from "../../services/config";
+import { DEFAULT_RATE_LIMIT_CONFIG, type AppConfig } from "../../services/config";
 import {
   PREFS_KIND,
   PREFS_NAMESPACE,
@@ -58,6 +58,11 @@ function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       groupLink: "https://chachi.chat/{hostname}/{group}",
       modes: { "group-a": "all", "group-b": "muted" },
     },
+    rateLimit: {
+      window: 60,
+      global: 20,
+      perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+    },
     ...overrides,
   };
 }
@@ -94,6 +99,11 @@ describe("serializePrefs", () => {
       whitelists: ["global-white"],
       blacklists: ["global-black"],
       appLink: "nostr:{link}",
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+      },
     });
   });
 
@@ -264,7 +274,7 @@ describe("sanitizeSyncedPrefs", () => {
     });
 
     expect(sanitized?.version).toBe(PREFS_VERSION);
-    expect(PREFS_VERSION).toBe(2);
+    expect(PREFS_VERSION).toBe(3);
   });
 
   test("contacts/others round-trip: serialize -> sanitize reproduces both category flags independently (D5-10)", () => {
@@ -316,6 +326,84 @@ describe("sanitizeSyncedPrefs", () => {
 
     expect(sanitized?.messages.contacts.enabled).toBe(false);
     expect(sanitized?.messages.others.enabled).toBe(false);
+  });
+});
+
+describe("sanitizeSyncedPrefs rateLimit (D6-07 / RESEARCH Pitfall 6)", () => {
+  test("coerces a present rateLimit's numeric fields via asNonNegativeInt (negative/NaN/non-number -> per-field local default, float floored, 0 preserved)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      rateLimit: {
+        window: 3.9,
+        global: -1,
+        perType: { replies: 0, zaps: "x", messages: NaN, groups: 12 },
+      },
+    });
+
+    expect(sanitized?.rateLimit).toEqual({
+      window: 3, // floored
+      global: DEFAULT_RATE_LIMIT_CONFIG.global, // negative -> fallback
+      perType: {
+        replies: 0, // 0 is valid, preserved
+        zaps: DEFAULT_RATE_LIMIT_CONFIG.perType.zaps, // non-numeric -> fallback
+        messages: DEFAULT_RATE_LIMIT_CONFIG.perType.messages, // NaN -> fallback
+        groups: 12,
+      },
+    });
+  });
+
+  // The CRITICAL Pitfall-6 regression: a pre-Phase-6 peer device's payload
+  // has NO rateLimit key at all. This MUST fall back to this device's own
+  // local DEFAULT_RATE_LIMIT_CONFIG -- NEVER to {global:0, window:0,
+  // perType:{...0}} -- or a rolling multi-device upgrade would silently
+  // disable rate limiting on an already-upgraded device (T-6-04).
+  test("absent rateLimit key (pre-Phase-6 peer payload) falls back to local DEFAULT_RATE_LIMIT_CONFIG, NOT zeros/unlimited (Pitfall 6)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      // no rateLimit key at all
+    });
+
+    expect(sanitized?.rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+    expect(sanitized?.rateLimit.global).not.toBe(0);
+    expect(sanitized?.rateLimit.window).not.toBe(0);
+  });
+
+  test("a null rateLimit value also falls back to local DEFAULT_RATE_LIMIT_CONFIG (Pitfall 6)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      rateLimit: null,
+    });
+
+    expect(sanitized?.rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+  });
+
+  test("serialize -> sanitize -> merge round-trips rateLimit", () => {
+    const config = makeConfig({
+      rateLimit: { window: 30, global: 10, perType: { replies: 1, zaps: 2, messages: 3, groups: 4 } },
+    });
+    const payload = serializePrefs(config);
+    const sanitized = sanitizeSyncedPrefs(payload);
+
+    expect(sanitized?.rateLimit).toEqual(payload.rateLimit);
+
+    const current = makeConfig();
+    const merged = mergePrefs(current, sanitized!);
+    expect(merged.rateLimit).toEqual(payload.rateLimit);
   });
 });
 
