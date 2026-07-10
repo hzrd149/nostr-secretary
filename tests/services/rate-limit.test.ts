@@ -9,6 +9,9 @@ import { afterAll, describe, expect, test } from "bun:test";
 // via resetRateLimitState() at the start of every case, so no mutated state
 // leaks between cases (RESEARCH Pitfall 2).
 import {
+  clampWindowSeconds,
+  MAX_WINDOW_SECONDS,
+  MIN_WINDOW_SECONDS,
   rateLimitedNotify,
   resetRateLimitState,
   runFlush,
@@ -53,6 +56,42 @@ function setRateLimit(rateLimit: typeof DEFAULT_RATE_LIMIT_CONFIG) {
 
 afterAll(() => {
   setRateLimit(DEFAULT_RATE_LIMIT_CONFIG);
+});
+
+// WR-04: degenerate `window` coverage. `clampWindowSeconds` is the pure
+// function the flush timer's switchMap keys on (CR-01) and the only place
+// the floor/ceiling from CR-02/WR-02 are enforced -- tested directly here
+// (deterministic, no real timers/no 930-tick/sec busy loop) rather than by
+// asserting on real `interval()` timing.
+describe("clampWindowSeconds -- CR-02/WR-02 floor/ceiling on the effective window", () => {
+  test("0 is clamped up to MIN_WINDOW_SECONDS -- unlike global/perType, 0 is NEVER 'unlimited' for window", () => {
+    expect(clampWindowSeconds(0)).toBe(MIN_WINDOW_SECONDS);
+  });
+
+  test("a negative window is clamped up to MIN_WINDOW_SECONDS", () => {
+    expect(clampWindowSeconds(-60)).toBe(MIN_WINDOW_SECONDS);
+  });
+
+  test("NaN is clamped to MIN_WINDOW_SECONDS", () => {
+    expect(clampWindowSeconds(NaN)).toBe(MIN_WINDOW_SECONDS);
+  });
+
+  test("Infinity is not finite, so it is treated as invalid and clamped to MIN_WINDOW_SECONDS (same as NaN)", () => {
+    expect(clampWindowSeconds(Infinity)).toBe(MIN_WINDOW_SECONDS);
+  });
+
+  test("an excessively large window (e.g. a fat-fingered extra zero) is clamped down to MAX_WINDOW_SECONDS", () => {
+    expect(clampWindowSeconds(999_999_999)).toBe(MAX_WINDOW_SECONDS);
+  });
+
+  test("an ordinary in-range window passes through unchanged", () => {
+    expect(clampWindowSeconds(60)).toBe(60);
+  });
+
+  test("exactly MIN_WINDOW_SECONDS and MAX_WINDOW_SECONDS pass through unchanged (inclusive bounds)", () => {
+    expect(clampWindowSeconds(MIN_WINDOW_SECONDS)).toBe(MIN_WINDOW_SECONDS);
+    expect(clampWindowSeconds(MAX_WINDOW_SECONDS)).toBe(MAX_WINDOW_SECONDS);
+  });
 });
 
 describe("rateLimitedNotify -- under-limit delivery", () => {

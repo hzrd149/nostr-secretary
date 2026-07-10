@@ -304,4 +304,36 @@ describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () =>
     expect(migrated.rateLimit.global).toBe(0);
     expect(migrated.rateLimit.perType.replies).toBe(0);
   });
+
+  test("WR-03: NaN in window/global/perType is treated as invalid and backfilled to the default, not passed through", () => {
+    const migrated = migrateConfig({
+      rateLimit: {
+        window: NaN,
+        global: NaN,
+        perType: { replies: NaN, zaps: 5, messages: 5, groups: 5 },
+      },
+    });
+
+    expect(migrated.rateLimit.window).toBe(DEFAULT_RATE_LIMIT_CONFIG.window);
+    expect(migrated.rateLimit.global).toBe(DEFAULT_RATE_LIMIT_CONFIG.global);
+    expect(migrated.rateLimit.perType.replies).toBe(
+      DEFAULT_RATE_LIMIT_CONFIG.perType.replies,
+    );
+  });
+
+  test("WR-03: a negative window/global/perType is treated as invalid and backfilled to the default, not passed through", () => {
+    const migrated = migrateConfig({
+      rateLimit: {
+        window: -60,
+        global: -1,
+        perType: { replies: -5, zaps: 5, messages: 5, groups: 5 },
+      },
+    });
+
+    expect(migrated.rateLimit.window).toBe(DEFAULT_RATE_LIMIT_CONFIG.window);
+    expect(migrated.rateLimit.global).toBe(DEFAULT_RATE_LIMIT_CONFIG.global);
+    expect(migrated.rateLimit.perType.replies).toBe(
+      DEFAULT_RATE_LIMIT_CONFIG.perType.replies,
+    );
+  });
 });
