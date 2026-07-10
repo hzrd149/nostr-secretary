@@ -28,7 +28,12 @@ export const PREFS_VERSION = 1;
  */
 export type SyncedPrefs = {
   version: number;
-  messages: { enabled: boolean; whitelists: string[]; blacklists: string[] };
+  messages: {
+    contacts: { enabled: boolean };
+    others: { enabled: boolean };
+    whitelists: string[];
+    blacklists: string[];
+  };
   replies: { enabled: boolean; whitelists: string[]; blacklists: string[] };
   zaps: { enabled: boolean; whitelists: string[]; blacklists: string[] };
   groups: {
@@ -54,7 +59,8 @@ export function serializePrefs(config: AppConfig): SyncedPrefs {
   return {
     version: PREFS_VERSION,
     messages: {
-      enabled: config.messages.enabled,
+      contacts: { enabled: config.messages.contacts.enabled },
+      others: { enabled: config.messages.others.enabled },
       whitelists: config.messages.whitelists,
       blacklists: config.messages.blacklists,
     },
@@ -130,7 +136,8 @@ export function sanitizeSyncedPrefs(value: unknown): SyncedPrefs | null {
   return {
     version,
     messages: {
-      enabled: asBoolean(messages.enabled),
+      contacts: { enabled: asBoolean((messages.contacts as any)?.enabled) },
+      others: { enabled: asBoolean((messages.others as any)?.enabled) },
       whitelists: asStringArray(messages.whitelists),
       blacklists: asStringArray(messages.blacklists),
     },
@@ -172,7 +179,8 @@ export function mergePrefs(
     ...current,
     messages: {
       ...current.messages,
-      enabled: incoming.messages.enabled,
+      contacts: { enabled: incoming.messages.contacts.enabled },
+      others: { enabled: incoming.messages.others.enabled },
       whitelists: incoming.messages.whitelists,
       blacklists: incoming.messages.blacklists,
     },
