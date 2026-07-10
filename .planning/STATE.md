@@ -99,6 +99,9 @@ Items acknowledged and carried forward from previous milestone close:
 | 02 | verification_deferred_human | /gsd-verify-work 2 |
 | 03 | verification_deferred_human | /gsd-verify-work 3 |
 | 04 | verification_deferred_human | /gsd-verify-work 4 |
+| 05 | verification_deferred_human | /gsd-verify-work 5 |
+
+Phase 05 is code-complete (3/3 plans; all D5 must-haves implemented + code-verified; 104/104 tests pass, lint clean; code-reviewed + auto-fixed to clean — a critical malformed-config crash, an unguarded isContact await, and missing gate-order coverage all fixed, incl. a new extracted evaluateDmNotificationGates unit with real behavioral tests). DM notifications now split into contacts (followed) / others (not-followed) with per-category enable, layered before the unchanged shouldNotify, across both NIP-04 and NIP-17; new-install default contacts ON / others OFF (D5-05 corrected). Four UAT checks require a live signer + real follow list + DMs, the running /messages UI, and multi-device sync — deferred during the autonomous run on 2026-07-10 to keep building phases 6–7. Resume with `/gsd-verify-work 5` when a signer/UI is available.
 
 Phase 04 is code-complete (2/2 plans; all 9 D4 must-haves code-verified; 77/77 tests pass, lint clean; code-reviewed + auto-fixed over 2 iterations — a critical mass-re-notification-on-seed-failure bug and a follow-on notification-blackout bug were both caught and fixed with a self-healing unbounded-retry seed). The giftWraps$ limit:1/skip(1) fragility (D4-02) is replaced. One UAT check requires a live NIP-46 signer + real DM relays (gift-wrapped DM decrypts once, not re-notified on restart, self-heals after a relay hiccup) and was deferred during the autonomous run on 2026-07-10 to keep building phases 5–7. Resume with `/gsd-verify-work 4` when a signer is available.
 
