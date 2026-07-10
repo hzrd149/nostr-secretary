@@ -26,7 +26,10 @@ import { loadLists } from "../helpers/lists";
 import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
 import { log } from "../services/logs";
-import { decryptLegacyDirectMessage } from "./legacy-messages";
+import {
+  decryptLegacyDirectMessage,
+  getMessageDisplayName,
+} from "./legacy-messages";
 import {
   blacklist$,
   eventStore,
@@ -174,7 +177,11 @@ enabledSigner
       );
 
     const { messages } = getConfig();
-    const displayName = getDisplayName(profile);
+    // Use the shared fallback-aware helper (WR-01): `profile` may be
+    // `undefined` here on purpose (a swallowed profile-lookup timeout), and
+    // getDisplayName(profile) alone has no npub fallback for a bare
+    // ProfileContent -- only for a full signed NostrEvent.
+    const displayName = getMessageDisplayName(profile, sender);
 
     await sendNotification({
       title: `${displayName} sent you a message`,

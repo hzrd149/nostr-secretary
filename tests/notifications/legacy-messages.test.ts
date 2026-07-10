@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { kinds, type NostrEvent } from "nostr-tools";
+import { nip19 } from "nostr-tools";
+import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import {
   decryptLegacyDirectMessage,
+  getMessageDisplayName,
   type DecryptLegacyMessageDeps,
 } from "../../notifications/legacy-messages";
 
@@ -142,5 +145,37 @@ describe("decryptLegacyDirectMessage (WR-04 coverage of the WR-01 fix)", () => {
     );
 
     expect(result).toBeUndefined();
+  });
+});
+
+describe("getMessageDisplayName (WR-01 regression: undefined-profile title fallback)", () => {
+  // Uses a real, generated 32-byte hex pubkey (rather than the
+  // "sender-pubkey" placeholder used above) so nip19.npubEncode succeeds --
+  // this exercises the exact encode-and-slice logic the fallback depends on.
+  const sender = getPublicKey(generateSecretKey());
+
+  test("falls back to a shortened npub (never the literal string 'undefined') when profile is undefined", () => {
+    const name = getMessageDisplayName(undefined, sender);
+
+    expect(name).not.toBe("undefined");
+    expect(name).not.toContain("undefined");
+
+    const npub = nip19.npubEncode(sender);
+    const expectedFallback = npub.slice(0, 9) + "…" + npub.slice(-4);
+    expect(name).toBe(expectedFallback);
+  });
+
+  test("prefers the profile's display_name/name over the npub fallback when profile is defined", () => {
+    expect(getMessageDisplayName({ name: "Alice" }, sender)).toBe("Alice");
+    expect(
+      getMessageDisplayName({ display_name: "Alice B" }, sender),
+    ).toBe("Alice B");
+  });
+
+  test("falls back to the shortened npub when profile is defined but has no name fields", () => {
+    const name = getMessageDisplayName({}, sender);
+    const npub = nip19.npubEncode(sender);
+    const expectedFallback = npub.slice(0, 9) + "…" + npub.slice(-4);
+    expect(name).toBe(expectedFallback);
   });
 });

@@ -1,4 +1,8 @@
-import type { ProfileContent } from "applesauce-core/helpers";
+import {
+  getDisplayName,
+  npubEncode,
+  type ProfileContent,
+} from "applesauce-core/helpers";
 import { unlockLegacyMessage } from "applesauce-common/helpers";
 import type { NostrEvent } from "nostr-tools";
 
@@ -71,4 +75,29 @@ export async function decryptLegacyDirectMessage(
   if (!content) return undefined;
 
   return { sender, profile, content, event };
+}
+
+/**
+ * Builds the display name used for a NIP-04 legacy-DM notification title,
+ * falling back to a shortened npub of `sender` when `profile` is
+ * `undefined` (WR-01: a swallowed profile-lookup timeout in
+ * `decryptLegacyDirectMessage` yields `profile: undefined` on purpose, so
+ * this must never be conflated with a decrypt failure).
+ *
+ * `getDisplayName`'s own auto-fallback-to-npub logic only triggers when
+ * given a full signed `NostrEvent` (it checks for `pubkey`/`id`/`sig`
+ * fields) -- since `profile` here is a bare `ProfileContent | undefined`,
+ * calling `getDisplayName(profile)` alone would return `undefined` with no
+ * fallback whenever `profile` is `undefined`, rendering the literal string
+ * "undefined" in a user-facing notification title. Building the fallback
+ * npub explicitly here (matching applesauce's own
+ * `npub.slice(0, 5 + 4) + "…" + npub.slice(-4)` convention) avoids that.
+ */
+export function getMessageDisplayName(
+  profile: ProfileContent | undefined,
+  sender: string,
+): string {
+  const npub = npubEncode(sender);
+  const fallback = npub.slice(0, 5 + 4) + "…" + npub.slice(-4);
+  return getDisplayName(profile, fallback) ?? fallback;
 }
