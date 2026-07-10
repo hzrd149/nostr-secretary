@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import config$, {
   DEFAULT_MESSAGES_CONFIG,
+  DEFAULT_RATE_LIMIT_CONFIG,
   getConfig,
   migrateConfig,
 } from "../../services/config";
@@ -208,5 +209,99 @@ describe("services/config DEFAULT_MESSAGES_CONFIG", () => {
     expect(DEFAULT_MESSAGES_CONFIG.sendContent).toBe(false);
     expect(DEFAULT_MESSAGES_CONFIG.whitelists).toEqual([]);
     expect(DEFAULT_MESSAGES_CONFIG.blacklists).toEqual([]);
+  });
+});
+
+describe("services/config DEFAULT_RATE_LIMIT_CONFIG (D6-07/D6-09)", () => {
+  test("is window:60, global:20, perType:5 for each of the four types", () => {
+    expect(DEFAULT_RATE_LIMIT_CONFIG).toEqual({
+      window: 60,
+      global: 20,
+      perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+    });
+  });
+
+  test("a fresh config$ value has rateLimit deep-equal to DEFAULT_RATE_LIMIT_CONFIG", () => {
+    expect(getConfig().rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+  });
+});
+
+describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () => {
+  test("migrateConfig({}) backfills rateLimit to a full DEFAULT_RATE_LIMIT_CONFIG clone", () => {
+    const migrated = migrateConfig({});
+
+    expect(migrated.rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+    expect(migrated.rateLimit).not.toBe(DEFAULT_RATE_LIMIT_CONFIG);
+    expect(migrated.rateLimit.perType).not.toBe(
+      DEFAULT_RATE_LIMIT_CONFIG.perType,
+    );
+  });
+
+  test("migrateConfig({ rateLimit: null }) replaces it with a full default clone", () => {
+    const migrated = migrateConfig({ rateLimit: null });
+
+    expect(migrated.rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+  });
+
+  test("migrateConfig({ rateLimit: 'x' }) (non-object) replaces it with a full default clone", () => {
+    const migrated = migrateConfig({ rateLimit: "x" });
+
+    expect(migrated.rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+  });
+
+  test("migrateConfig({ rateLimit: { global: 10 } }) preserves global:10 and backfills window + perType", () => {
+    const migrated = migrateConfig({ rateLimit: { global: 10 } });
+
+    expect(migrated.rateLimit.global).toBe(10);
+    expect(migrated.rateLimit.window).toBe(DEFAULT_RATE_LIMIT_CONFIG.window);
+    expect(migrated.rateLimit.perType).toEqual(
+      DEFAULT_RATE_LIMIT_CONFIG.perType,
+    );
+  });
+
+  test("migrateConfig backfills only the missing perType sub-fields, preserving explicit ones", () => {
+    const migrated = migrateConfig({
+      rateLimit: { window: 30, global: 15, perType: { replies: 7 } },
+    });
+
+    expect(migrated.rateLimit.window).toBe(30);
+    expect(migrated.rateLimit.global).toBe(15);
+    expect(migrated.rateLimit.perType).toEqual({
+      replies: 7,
+      zaps: DEFAULT_RATE_LIMIT_CONFIG.perType.zaps,
+      messages: DEFAULT_RATE_LIMIT_CONFIG.perType.messages,
+      groups: DEFAULT_RATE_LIMIT_CONFIG.perType.groups,
+    });
+  });
+
+  test("is idempotent on an already-complete rateLimit and does not share the perType reference with the default", () => {
+    const complete = {
+      rateLimit: {
+        window: 45,
+        global: 12,
+        perType: { replies: 1, zaps: 2, messages: 3, groups: 4 },
+      },
+    };
+
+    const migrated = migrateConfig(complete);
+
+    expect(migrated.rateLimit).toEqual({
+      window: 45,
+      global: 12,
+      perType: { replies: 1, zaps: 2, messages: 3, groups: 4 },
+    });
+  });
+
+  test("preserves an explicit 0 in a stored rateLimit -- 0 is valid 'unlimited', not missing", () => {
+    const migrated = migrateConfig({
+      rateLimit: {
+        window: 60,
+        global: 0,
+        perType: { replies: 0, zaps: 5, messages: 5, groups: 5 },
+      },
+    });
+
+    expect(migrated.rateLimit.global).toBe(0);
+    expect(migrated.rateLimit.perType.replies).toBe(0);
   });
 });
