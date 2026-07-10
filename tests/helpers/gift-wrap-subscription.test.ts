@@ -110,7 +110,7 @@ describe("notifyNewGiftWraps (D4-02 contract)", () => {
 });
 
 describe("seededGiftWraps (CR-01 fail-closed seed contract, iteration 2: self-healing)", () => {
-  test("while the seed keeps failing, live$'s backlog burst is NOT emitted -- no mass re-notification", () => {
+  test("while the seed keeps failing, live$'s backlog burst is NOT emitted -- no mass re-notification, and unsubscribe cancels the pending retry", async () => {
     const historical = fakeEvent("historical-id");
     // Never succeeds within this test -- retries are unbounded, so we
     // just assert the suppression holds for as long as it keeps failing.
@@ -119,7 +119,7 @@ describe("seededGiftWraps (CR-01 fail-closed seed contract, iteration 2: self-he
 
     const failures: unknown[] = [];
     const emitted: NostrEvent[] = [];
-    seededGiftWraps(seedRequest$, live$, {
+    const sub = seededGiftWraps(seedRequest$, live$, {
       retryDelay: 0,
       maxRetryDelay: 0,
       onSeedFailure: (error) => failures.push(error),
@@ -134,6 +134,16 @@ describe("seededGiftWraps (CR-01 fail-closed seed contract, iteration 2: self-he
     expect(emitted).toEqual([]);
     expect(failures.length).toBeGreaterThanOrEqual(1);
     expect((failures[0] as Error).message).toBe("seed timeout");
+
+    // Unsubscribing MUST cancel the pending (unbounded) retry loop -- the
+    // exact leak-safety property the self-healing redesign guarantees, and
+    // without this the retryDelay:0 loop would run forever in the background.
+    sub.unsubscribe();
+    const afterUnsub = failures.length;
+    // Give any still-scheduled retry macrotask a chance to fire; a correctly
+    // torn-down subscription produces zero further failures.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(failures.length).toBe(afterUnsub);
   });
 
   test("after repeated seed failures, a later success does NOT mass-notify the backlog AND live notifications resume -- self-healing", async () => {
