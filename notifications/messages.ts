@@ -1,13 +1,13 @@
 import { defined } from "applesauce-core";
 import { getDisplayName, getProfilePicture } from "applesauce-core/helpers";
 import {
-  getLegacyMessageCorraspondant,
   getLegacyMessageReceiver,
   unlockGiftWrap,
   unlockLegacyMessage,
 } from "applesauce-common/helpers";
 import { kinds } from "nostr-tools";
 import {
+  BehaviorSubject,
   catchError,
   combineLatest,
   EMPTY,
@@ -21,6 +21,7 @@ import {
   tap,
 } from "rxjs";
 
+import { buildOpenLink } from "../helpers/link";
 import { loadLists } from "../helpers/lists";
 import { getValue } from "../helpers/observable";
 import config$, { getConfig } from "../services/config";
@@ -96,6 +97,15 @@ const enabledSigner = combineLatest([enabled$, signer$]).pipe(
   shareReplay(1),
 );
 
+/**
+ * True while a NIP-04 legacy-DM decrypt has failed for an already-connected
+ * signer (e.g. a bunker that was never granted `nip04_decrypt`). Reset to
+ * false as soon as a decrypt succeeds again, so a non-blocking reconnect
+ * hint (see pages/notifications.tsx#DmDecryptHint) can clear itself once
+ * decryption starts working (D3-07).
+ */
+export const nip04DecryptDegraded$ = new BehaviorSubject(false);
+
 // Listen for NIP-04 messages
 enabledSigner
   .pipe(
@@ -103,33 +113,53 @@ enabledSigner
     switchMap((signer) =>
       tagged$.pipe(
         filter((event) => event.kind === kinds.EncryptedDirectMessage),
-        mergeMap(async (event) => {
+        mergeMap((event) => {
           const { pubkey } = getConfig();
-          if (!pubkey) return;
+          if (!pubkey) return EMPTY;
 
           const sender = getLegacyMessageReceiver(event, pubkey);
-          if (!sender) return;
+          if (!sender) return EMPTY;
 
-          const profile = await getValue(
-            eventStore.profile(sender).pipe(defined()),
+          return from(
+            (async () => {
+              const profile = await getValue(
+                eventStore.profile(sender).pipe(defined()),
+              );
+
+              log("Unlocking legacy message", {
+                event: event.id,
+                sender,
+                signer: signer.pubkey,
+              });
+
+              const content = await unlockLegacyMessage(event, pubkey, signer);
+              if (!content) return undefined;
+
+              // Decrypt succeeded -- clear any previously-set reconnect hint.
+              nip04DecryptDegraded$.next(false);
+
+              return { sender, profile, content, event };
+            })(),
+          ).pipe(
+            catchError((error) => {
+              log("Failed to unlock legacy message", {
+                event: event.id,
+                signer: signer.pubkey,
+                error: Reflect.get(error, "message") || "Unknown error",
+              });
+              // D3-07: any NIP-04 decrypt failure while connected is
+              // reconnect-hint-worthy (no standardized NIP-46
+              // permission-denied error code to string-match against).
+              nip04DecryptDegraded$.next(true);
+              return EMPTY;
+            }),
           );
-
-          log("Unlocking legacy message", {
-            event: event.id,
-            sender,
-            signer: signer.pubkey,
-          });
-
-          const content = await unlockLegacyMessage(event, pubkey, signer);
-          if (!content) return;
-
-          return { sender, profile, content };
         }),
       ),
     ),
     defined(),
   )
-  .subscribe(async ({ sender, profile, content }) => {
+  .subscribe(async ({ sender, profile, content, event }) => {
     if (!content) return;
 
     // Check if we should notify for this sender
@@ -146,6 +176,7 @@ enabledSigner
       title: `${displayName} sent you a message`,
       message: messages.sendContent ? content : "[content omitted]",
       icon: getProfilePicture(profile),
+      click: buildOpenLink(event),
     });
   });
 
