@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02
-current_phase_name: save-notification-preferences-as-encrypted-1xxxx-nostr-event
+current_phase: 03
+current_phase_name: review-and-add-nip-04-dm-support-per-applesauce-docs
 status: executing
 stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-07-10T03:23:59.267Z"
-last_activity: 2026-07-09
-last_activity_desc: Phase 02 execution started
+last_updated: "2026-07-10T03:26:25.426Z"
+last_activity: 2026-07-10
+last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 9
-  completed_plans: 5
-  percent: 14
+  completed_phases: 2
+  total_plans: 12
+  completed_plans: 9
+  percent: 29
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/ROADMAP.md (no PROJECT.md for this project)
 
 **Core value:** Per-group and per-type notification control for a Nostr notification secretary.
-**Current focus:** Phase 02 — save-notification-preferences-as-encrypted-1xxxx-nostr-event
+**Current focus:** Phase 03 — review-and-add-nip-04-dm-support-per-applesauce-docs
 
 ## Current Position
 
-Phase: 02 (save-notification-preferences-as-encrypted-1xxxx-nostr-event) — EXECUTING
-Plan: 1 of 4
-Status: Ready to execute
-Last activity: 2026-07-09 — Phase 02 execution started
+Phase: 03 (review-and-add-nip-04-dm-support-per-applesauce-docs) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 03
+Last activity: 2026-07-10 — Phase 03 execution started
 
 Progress: [██████████] 100%
 
