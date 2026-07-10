@@ -5,7 +5,7 @@ import { NostrConnectSigner } from "applesauce-signers";
 import type { BunRequest } from "bun";
 import { BehaviorSubject, firstValueFrom } from "rxjs";
 import Document from "../components/Document";
-import { DEFAULT_SIGNER_RELAY, SIGNER_PERMISSIONS } from "../const";
+import { DEFAULT_SIGNER_RELAYS, SIGNER_PERMISSIONS } from "../const";
 import * as messagesNotification from "../notifications/messages";
 import * as repliesNotification from "../notifications/replies";
 import * as zapsNotification from "../notifications/zaps";
@@ -242,7 +242,7 @@ function SetupComponent() {
     log("Creating new signer");
     signer = new NostrConnectSigner({
       pool,
-      relays: [DEFAULT_SIGNER_RELAY],
+      relays: DEFAULT_SIGNER_RELAYS,
     });
 
     // Start waiting for the signer to connect

@@ -5,7 +5,10 @@ import {
 import { kinds } from "nostr-tools";
 
 export const DEFAULT_LOOKUP_RELAYS = ["wss://purplepag.es"];
-export const DEFAULT_SIGNER_RELAY = "wss://relay.nsec.app";
+export const DEFAULT_SIGNER_RELAYS = [
+  "wss://bucket.coracle.social",
+  "wss://relay.nsec.app",
+];
 export const CACHI_GROUP_LINK = "https://chachi.chat/{hostname}/{group}";
 
 /**

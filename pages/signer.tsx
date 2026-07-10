@@ -5,7 +5,7 @@ import type { BunRequest } from "bun";
 import { BehaviorSubject } from "rxjs";
 import Document from "../components/Document";
 import Layout from "../components/Layout";
-import { DEFAULT_SIGNER_RELAY, SIGNER_PERMISSIONS } from "../const";
+import { DEFAULT_SIGNER_RELAYS, SIGNER_PERMISSIONS } from "../const";
 import config$, { getConfig, updateConfig } from "../services/config";
 import { log } from "../services/logs";
 import { pool, signer$ } from "../services/nostr";
@@ -19,7 +19,7 @@ function SetupPage() {
     log("Creating new signer");
     signer = new NostrConnectSigner({
       pool,
-      relays: [DEFAULT_SIGNER_RELAY],
+      relays: DEFAULT_SIGNER_RELAYS,
     });
 
     // Start waiting for the signer to connect
