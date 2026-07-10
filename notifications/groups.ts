@@ -35,7 +35,7 @@ import {
   pool,
   whitelist$,
 } from "../services/nostr";
-import { sendNotification } from "../services/ntfy";
+import { rateLimitedNotify } from "../services/rate-limit";
 
 /** Check if a sender should receive notifications based on whitelist/blacklist */
 async function shouldNotify(pubkey: string): Promise<boolean> {
@@ -140,7 +140,7 @@ enabled$
     );
 
     // Send a notification
-    await sendNotification({
+    await rateLimitedNotify("groups", {
       title: `${getDisplayName(profile)} posted to ${getTagValue(metadata, "name")}`,
       message: message.content,
       icon: getTagValue(metadata, "picture") ?? getProfilePicture(profile),

@@ -43,7 +43,7 @@ import {
   tagged$,
   whitelist$,
 } from "../services/nostr";
-import { sendNotification } from "../services/ntfy";
+import { rateLimitedNotify } from "../services/rate-limit";
 
 /** Check if a sender should receive notifications based on whitelist/blacklist */
 async function shouldNotify(pubkey: string): Promise<boolean> {
@@ -221,7 +221,7 @@ enabledSigner
     // ProfileContent -- only for a full signed NostrEvent.
     const displayName = getMessageDisplayName(profile, sender);
 
-    await sendNotification({
+    await rateLimitedNotify("messages", {
       title: `${displayName} sent you a message`,
       message: messages.sendContent ? content : "[content omitted]",
       icon: getProfilePicture(profile),
@@ -315,7 +315,7 @@ enabledSigner
     const content = rumor.content;
     const displayName = getMessageDisplayName(profile, sender);
 
-    await sendNotification({
+    await rateLimitedNotify("messages", {
       title: `${displayName} sent you a message`,
       message: messages.sendContent ? content : "[content omitted]",
       icon: getProfilePicture(profile),
