@@ -125,3 +125,7 @@ None - no external service configuration required.
 ---
 *Phase: 06-notification-rate-limiting-per-type-and-global-with-grouped*
 *Completed: 2026-07-10*
+
+## Self-Check: PASSED
+
+All 5 modified files verified present on disk; all 3 task/docs commits (6191242, 7c5520c, 44ec50b) verified present in git log.
