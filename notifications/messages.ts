@@ -154,7 +154,7 @@ enabledSigner
               log("Failed to unlock legacy message", {
                 event: event.id,
                 signer: signer.pubkey,
-                error: Reflect.get(error, "message") || "Unknown error",
+                error: error instanceof Error ? error.message : String(error),
               });
               // D3-07: any NIP-04 decrypt failure while connected is
               // reconnect-hint-worthy (no standardized NIP-46
@@ -209,7 +209,7 @@ enabledSigner
               log("Failed to unlock gift wrap", {
                 event: event.id,
                 signer: signer.pubkey,
-                error: Reflect.get(error, "message") || "Unknown error",
+                error: error instanceof Error ? error.message : String(error),
               });
               return EMPTY;
             }),
