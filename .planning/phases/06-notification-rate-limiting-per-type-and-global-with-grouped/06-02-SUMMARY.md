@@ -150,3 +150,12 @@ None - no external service configuration required. No packages installed this pl
 ---
 *Phase: 06-notification-rate-limiting-per-type-and-global-with-grouped*
 *Completed: 2026-07-10*
+
+## Self-Check: PASSED
+
+- FOUND: services/config.ts
+- FOUND: helpers/preferences.ts
+- FOUND: .planning/phases/06-notification-rate-limiting-per-type-and-global-with-grouped/06-02-SUMMARY.md
+- FOUND commit: 8bf0a1d (Task 1)
+- FOUND commit: 66ab129 (Task 2)
+- FOUND commit: c39e458 (SUMMARY.md)
