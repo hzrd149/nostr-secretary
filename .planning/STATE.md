@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: add-nip-17-dm-notifications-support-per-applesauce-docs
+current_phase: 05
+current_phase_name: dm-notifications-split-contacts-and-others-categories
 status: executing
 stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-07-10T18:36:21.244Z"
+last_updated: "2026-07-10T18:36:37.656Z"
 last_activity: 2026-07-10
-last_activity_desc: Phase 04 execution started
+last_activity_desc: Phase 05 execution started
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 14
-  completed_plans: 12
-  percent: 43
+  completed_phases: 4
+  total_plans: 17
+  completed_plans: 14
+  percent: 57
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/ROADMAP.md (no PROJECT.md for this project)
 
 **Core value:** Per-group and per-type notification control for a Nostr notification secretary.
-**Current focus:** Phase 04 — add-nip-17-dm-notifications-support-per-applesauce-docs
+**Current focus:** Phase 05 — dm-notifications-split-contacts-and-others-categories
 
 ## Current Position
 
-Phase: 04 (add-nip-17-dm-notifications-support-per-applesauce-docs) — EXECUTING
-Plan: 1 of 2
-Status: Ready to execute
-Last activity: 2026-07-10 — Phase 04 execution started
+Phase: 05 (dm-notifications-split-contacts-and-others-categories) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 05
+Last activity: 2026-07-10 — Phase 05 execution started
 
 Progress: [██████████] 100%
 
