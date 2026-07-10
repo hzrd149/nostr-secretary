@@ -1,145 +1,62 @@
 ---
 phase: 03-review-and-add-nip-04-dm-support-per-applesauce-docs
-reviewed: 2026-07-09T00:00:00Z
+reviewed: 2026-07-09T23:20:00Z
 depth: standard
-files_reviewed: 7
+files_reviewed: 9
 files_reviewed_list:
   - const.ts
+  - notifications/legacy-messages.ts
   - notifications/messages.ts
   - pages/notifications.tsx
   - services/config.ts
   - tests/const.test.ts
+  - tests/notifications/legacy-messages.test.ts
   - tests/notifications/messages.test.ts
   - tests/services/config.test.ts
 findings:
   critical: 0
-  warning: 4
-  info: 4
-  total: 8
-status: issues_found
+  warning: 0
+  info: 2
+  total: 2
+status: clean
 ---
 
-# Phase 3: Code Review Report
+# Phase 3: Code Review Report (Re-review, iteration 3 -- final)
 
-**Reviewed:** 2026-07-09T00:00:00Z
+**Reviewed:** 2026-07-09T23:20:00Z
 **Depth:** standard
-**Files Reviewed:** 7
-**Status:** issues_found
+**Files Reviewed:** 9
+**Status:** clean
 
 ## Summary
 
-Reviewed the NIP-04 DM hardening changes: `Permission.Nip04Decrypt` added to `SIGNER_PERMISSIONS` (const.ts), a pure/exported `migrateConfig()` with a forced `messages.sendContent:false` on legacy migration (services/config.ts), a `catchError`-wrapped NIP-04 `mergeMap` body plus a `nip04DecryptDegraded$` signal and DM deep-link (notifications/messages.ts), and a non-blocking `DmDecryptHint()` on `/notifications` (pages/notifications.tsx).
+Final re-review scoped narrowly to commit `6df2af7` (the WR-01 display-name-fallback fix that closed the last remaining Warning from iteration 2). `bun test` (68 pass / 0 fail) and `bun run lint` (`tsc --noEmit`, clean) were re-run and are both green.
 
-Verified positively, no issues found:
-- The `sendContent` gate (`messages.sendContent ? content : "[content omitted]"`) is correctly applied at the one ntfy send site for NIP-04 messages, and no decrypted plaintext leaks into the `log()` calls or the `click`/`buildOpenLink(event)` deep link (which only encodes id/pubkey/relay pointer material).
-- `catchError` is correctly scoped *inside* the per-event inner observable (`from(promise).pipe(catchError(...))`) rather than on the outer merged stream, so one bad/garbage NIP-04 event no longer permanently kills the whole `tagged$` subscription the way the pre-phase code would have (the old `mergeMap(async (event) => {...})` had no `catchError` at all, so any thrown/rejected error would propagate up through `mergeMap` and terminate the subscription for all future events).
-- `SIGNER_PERMISSIONS` correctly adds the string `"nip04_decrypt"` (`Permission.Nip04Decrypt` resolves to that exact NIP-46 permission string) and correctly omits `nip04_encrypt`, matching D3-02/D3-03.
+Verified all four points this iteration was asked to check:
 
-However, the new signal (`nip04DecryptDegraded$`) and its supporting error handling have a genuine logic bug (WR-01) that undermines the stated purpose of the phase, a related defensive-coding gap in the same `catchError` blocks (WR-02), a migration-guard gap re-discovered while extracting `migrateConfig()` (WR-03), and a test-coverage gap that is exactly why WR-01 wasn't caught (WR-04). See below.
+1. **The fix is correct.** `getMessageDisplayName(profile, sender)` (`notifications/legacy-messages.ts:96-103`) builds an explicit npub fallback (`npub.slice(0, 9) + "…" + npub.slice(-4)`) and passes it as `getDisplayName`'s second (`fallback`) argument. Cross-checked against applesauce's actual `getDisplayName` implementation (`node_modules/applesauce-core/dist/helpers/profile.js:45-63`): when `metadata` is falsy, `getDisplayName` returns `fallback` directly; when `metadata` is a bare `ProfileContent` (no `pubkey`/`id`/`sig`), it returns `metadata.display_name || metadata.displayName || metadata.name || fallback`. Since a non-empty `fallback` is now always supplied, the literal `"undefined"` string can no longer reach the notification title in either the timed-out-profile case or the profile-with-no-name-fields case. Confirmed both by reading the code and by the new tests.
+2. **NIP-17 path untouched, no plaintext leak.** Diffed `6df2af7` directly: it touches only `notifications/legacy-messages.ts` (new `getMessageDisplayName` export, additive) and `notifications/messages.ts` (one line changed, in the NIP-04 subscribe callback only: `getDisplayName(profile)` -> `getMessageDisplayName(profile, sender)`). The NIP-17 gift-wrap subscribe block (`notifications/messages.ts:195-247`) is byte-for-byte unchanged and still calls plain `getDisplayName(profile)` with no fallback -- that is a separate, pre-existing code path (the `getValue(eventStore.profile(sender))` call there dates to commit `9176ceb`, long before this phase started), not something this fix touches or introduces. `content` (the decrypted plaintext) is untouched by this diff and still only reaches `sendNotification` behind the existing `messages.sendContent ? content : "[content omitted]"` gate at `notifications/messages.ts:188`.
+3. **Fallback matches project convention for unknown senders.** The `npub.slice(0, 5 + 4) + "…" + npub.slice(-4)` construction is character-for-character identical to applesauce's own internal fallback convention inside `getDisplayName` (`profile.js:52-53`), and is consistent with the codebase's existing pattern of trusting `event.pubkey` as a valid 32-byte hex value suitable for `npubEncode` without extra validation (see the pre-existing `nip19.npubEncode(event.pubkey)` call in `helpers/link.ts:25`, applied here to `sender`, which for an incoming legacy message resolves to `event.pubkey` via `getLegacyMessageReceiver`). Events on `tagged$` only reach this pipeline via the RelayPool subscription (which requires a valid signature to be stored via `mapEventsToStore`), so `sender` cannot be a malformed value capable of throwing inside `npubEncode` at this call site -- no new crash surface introduced by the fix.
+4. **Tests genuinely cover the fix.** Three new tests in `tests/notifications/legacy-messages.test.ts` (`getMessageDisplayName` describe block, lines 151-181) directly exercise: (a) `profile: undefined` never yields the literal string `"undefined"` and matches the exact expected shortened-npub value; (b) a profile with `name`/`display_name` is preferred over the fallback; (c) a profile object with no name fields still falls back to the shortened npub. These assert against real `nip19.npubEncode`-derived values from a real generated keypair, exercising the pure helper directly rather than mocking `getDisplayName`.
 
-## Warnings
-
-### WR-01: Profile-lookup failures are misreported as NIP-04 decrypt-permission failures
-
-**File:** `notifications/messages.ts:123-155`
-**Issue:** The `nip04DecryptDegraded$` signal is documented as "True while a NIP-04 legacy-DM decrypt has failed ... e.g. a bunker that was never granted `nip04_decrypt`" (lines 100-106), and the UI hint it drives (`DmDecryptHint` in pages/notifications.tsx) tells the user to "Reconnect your signer to grant DM (NIP-04) decrypt permission." But the single `catchError` at line 144 wraps the *entire* async body, including the profile lookup at lines 125-127:
-```ts
-const profile = await getValue(
-  eventStore.profile(sender).pipe(defined()),
-);
-```
-`getValue` (helpers/observable.ts) applies a 5-second `simpleTimeout`. If the sender's profile hasn't been seen/loaded yet (e.g. slow relay, no kind-0 available), this line throws a `TimeoutError` that is indistinguishable, inside the shared `catchError`, from an actual decrypt-permission failure. The result: `nip04DecryptDegraded$.next(true)` fires and the "reconnect your signer to grant DM decrypt permission" hint is shown to the user even though decryption was never attempted and the signer's permissions are perfectly fine. This is a false-positive/misleading diagnostic directly in the feature this phase added.
-**Fix:** Scope the profile lookup and the decrypt call into separate error domains, e.g. don't let a profile-lookup failure set the degraded flag, and/or fall back to a placeholder profile instead of failing the whole pipeline on profile timeout:
-```ts
-return from(
-  (async () => {
-    const profile = await getValue(
-      eventStore.profile(sender).pipe(defined()),
-    ).catch(() => undefined); // profile lookup failure != decrypt failure
-
-    log("Unlocking legacy message", { event: event.id, sender, signer: signer.pubkey });
-
-    const content = await unlockLegacyMessage(event, pubkey, signer); // only this throw should flip nip04DecryptDegraded$
-    if (!content) return undefined;
-
-    nip04DecryptDegraded$.next(false);
-    return { sender, profile, content, event };
-  })(),
-).pipe(
-  catchError((error) => { ... }),
-);
-```
-
-### WR-02: `catchError` handler itself can throw on a non-`Error` rejection, defeating the subscription-lifetime fix
-
-**File:** `notifications/messages.ts:148` (NIP-04 block) and `notifications/messages.ts:201` (NIP-17 block)
-**Issue:** Both `catchError` callbacks compute the log message via:
-```ts
-error: Reflect.get(error, "message") || "Unknown error",
-```
-`Reflect.get` requires its target to be an object; if anything in the awaited chain ever rejects with a non-object value (e.g. `Promise.reject("some string")`, or `throw undefined`), `Reflect.get(error, "message")` itself throws a `TypeError` *inside* the `catchError` callback. RxJS will then propagate that new error to the outer subscription as a genuine error notification, which is exactly the failure mode this phase's `catchError` wrapping was introduced to prevent (the whole `tagged$`/`giftWraps$` listener dies until process restart). Today's concrete dependencies (`NostrConnectSigner` always rejects with `new Error(...)`, `simpleTimeout` throws a `TimeoutError`) happen to always be object-shaped, so this isn't observed in practice yet, but it's a latent landmine directly in the code path this phase was meant to harden, and it's now duplicated into a second call site.
-**Fix:** Use a type-safe message extraction that can't itself throw:
-```ts
-error: error instanceof Error ? error.message : String(error),
-```
-
-### WR-03: `migrateConfig()` doesn't guard a `null`/non-object top-level `groups` key
-
-**File:** `services/config.ts:138-143`
-**Issue:** The backfill only fires when `parsed.groups` is truthy:
-```ts
-if (
-  parsed.groups &&
-  (parsed.groups.modes == null || typeof parsed.groups.modes !== "object")
-) {
-  parsed.groups.modes = {};
-}
-```
-If a hand-edited (or corrupted) `config.json` has `"groups": null` at the top level, this guard short-circuits and does nothing, so `parsed.groups` stays `null`. `config$.next({ ...config$.value, ...parsed })` then overwrites the default non-null `groups` object with `null`. Any later code that indexes into `groups` unconditionally — e.g. `pages/notifications.tsx:256`, `config$.getValue().groups.modes ?? {}` — will throw a `TypeError: Cannot read properties of null`. This function was specifically pulled out, documented, and unit-tested this phase to close exactly this class of "invalid persisted shape" gap (see the JSDoc's explicit call-out of `null` as "plausible from a hand-edited config.json"), but the top-level `groups: null` shape is not covered by the guard or by any of the new `migrateConfig` tests.
-**Fix:** Normalize `groups` itself before checking `.modes`:
-```ts
-if (parsed.groups == null || typeof parsed.groups !== "object") {
-  parsed.groups = {};
-}
-if (parsed.groups.modes == null || typeof parsed.groups.modes !== "object") {
-  parsed.groups.modes = {};
-}
-```
-
-### WR-04: New tests never exercise the actual wired subscription behavior added this phase
-
-**File:** `tests/notifications/messages.test.ts:1-28`
-**Issue:** The test file explicitly (and reasonably, per its own comment) avoids importing `notifications/messages.ts` to dodge live network I/O, and instead tests `unlockLegacyMessage` directly and a hand-copied mirror of `shouldNotify`'s gate order. That leaves zero coverage of the actual new production code: the `catchError` wiring, the `nip04DecryptDegraded$` set/reset semantics, and the `buildOpenLink(event)` click threading are all untested. The file even self-acknowledges a related gap via `TODO(WR-04)` for `shouldNotify`'s wiring — but the gap is broader than that comment states: it's exactly why WR-01 (profile-lookup failures misreported as decrypt failures) shipped without being caught by any test.
-**Fix:** Consider extracting the per-event decrypt-and-classify logic (the async IIFE currently inline in the `mergeMap`) into a standalone, injectable function so it can be unit tested with mocked `getValue`/`unlockLegacyMessage` without needing the live `tagged$`/`eventStore` singletons — this would have caught WR-01 directly.
+No new Critical or Warning findings. Two minor, non-blocking Info items are noted below -- one is a new observation from this iteration, the other is the previously-accepted, explicitly out-of-scope `migrateConfig` array-guard item carried forward for record-keeping only (not re-analyzed per this iteration's instructions).
 
 ## Info
 
-### IN-01: DM deep-link only wired for NIP-04, not NIP-17
+### IN-01: `getMessageDisplayName`'s trailing `?? fallback` is unreachable
 
-**File:** `notifications/messages.ts:175-181` vs. `notifications/messages.ts:229-236`
-**Issue:** `click: buildOpenLink(event)` was added to the NIP-04 (kind-4) `sendNotification` call but not to the NIP-17 (gift-wrap rumor) `sendNotification` call a few lines below, so DM notification click-through behavior is inconsistent depending on which protocol delivered the message.
-**Fix:** If in scope, thread a deep link through the NIP-17 path too (note the rumor itself isn't independently verifiable/routable the same way as a signed kind-4 event, so this may need the outer gift-wrap event rather than the rumor).
+**File:** `notifications/legacy-messages.ts:102`
+**Issue:** `return getDisplayName(profile, fallback) ?? fallback;` -- given applesauce's actual implementation, `getDisplayName(metadata, fallback)` returns `(metadata?.display_name || metadata?.displayName || metadata?.name || fallback)?.trim()` (or `fallback` directly when `metadata` is falsy). Since `fallback` here is always a non-empty string (`npubEncode` output is never empty), the `||` chain always resolves to a truthy string before `.trim()` runs, so `getDisplayName(profile, fallback)` can never actually return `undefined` at this call site. The trailing `?? fallback` is defensive dead code; it does not change behavior and does not affect the correctness of the shipped fix.
+**Fix:** Optional simplification: `return getDisplayName(profile, fallback);` (or leave as-is if the team prefers the extra defensiveness against future upstream changes to `getDisplayName`'s contract).
 
-### IN-02: Redundant double `defined()` on the profile lookup
+### IN-02 (carried forward, out of scope): `migrateConfig`'s `groups` null-guard doesn't catch an array top-level value
 
-**File:** `notifications/messages.ts:125-127`
-**Issue:** `getValue(eventStore.profile(sender).pipe(defined()))` pre-filters with `defined()` before passing to `getValue`, but `getValue` (helpers/observable.ts:8) already does `observable.pipe(defined(), simpleTimeout(timeout))` internally, so `defined()` runs twice for no behavioral benefit.
-**Fix:** Drop the extra `.pipe(defined())`: `getValue(eventStore.profile(sender))`.
-
-### IN-03: Unreachable `if (!content) return;` guard
-
-**File:** `notifications/messages.ts:163`
-**Issue:** By the time the final `.subscribe()` callback runs, the upstream `defined()` operator (line 160) has already filtered out every `undefined` result the `mergeMap` could produce (both the `if (!content) return undefined` path and the `catchError`'s `EMPTY`), so `content` is guaranteed truthy here. The guard is dead code that slightly obscures the actual control flow.
-**Fix:** Either remove the check, or add a comment noting it's a defensive belt-and-suspenders guard rather than a reachable branch.
-
-### IN-04: `migrateConfig` groups.modes guard doesn't catch an array value
-
-**File:** `services/config.ts:138-143`
-**Issue:** `typeof parsed.groups.modes !== "object"` is `false` for an array (`typeof [] === "object"`), so a persisted `groups.modes: []` (another plausible hand-edited/corrupted shape) is not reset to `{}`, even though the JSDoc's stated intent is to guard "any non-object value."
-**Fix:** `if (parsed.groups.modes == null || typeof parsed.groups.modes !== "object" || Array.isArray(parsed.groups.modes)) parsed.groups.modes = {};`
+**File:** `services/config.ts:140-142`
+**Issue:** Previously identified in iteration 2's review and explicitly marked out of scope for this iteration ("Do NOT re-litigate the previously-accepted INFO finding (array-typed groups guard) -- it is knowingly out of scope"). Listed here only so the finding remains tracked in this final review's counts; not re-analyzed in this pass.
+**Fix:** (unchanged from prior review) `if (parsed.groups == null || typeof parsed.groups !== "object" || Array.isArray(parsed.groups)) parsed.groups = {};`
 
 ---
 
-_Reviewed: 2026-07-09T00:00:00Z_
+_Reviewed: 2026-07-09T23:20:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
