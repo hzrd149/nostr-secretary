@@ -124,21 +124,35 @@ function writeConfig(config: AppConfig) {
  * before it is merged into config$. Pure function of its input -- no I/O, no
  * config$ access -- so it is unit-testable in isolation (D3-09).
  *
- * Applies three migrations:
+ * Applies four migrations:
  * 1. Reshapes the old `directMessageNotifications` boolean field into the
  *    `messages` object. `messages.sendContent` is forced to `false`
  *    unconditionally (D3-04) -- an upgrading user must never be silently
  *    opted into forwarding decrypted DM plaintext to the ntfy server, even
  *    if they previously had DM notifications enabled.
- * 2. Splits the flat `messages.enabled` field into per-category
- *    `messages.contacts.enabled` / `messages.others.enabled`, seeding BOTH
- *    from the pre-existing value so upgraders see no behavior change (D5-06).
- *    Runs whether `messages.enabled` came from this migration's own
- *    `directMessageNotifications` reshape above, or was already present from
- *    a Phase-3/4-era config.json. Guarded on both `contacts` AND `others`
- *    being absent, so a config already on the new shape is left untouched
- *    (idempotent) and no `messages.enabled` key is ever re-introduced.
- * 3. Backfills `groups.modes` for configs written before per-group modes
+ * 2. Normalizes a null/non-object top-level `messages` (e.g. a hand-edited
+ *    `"messages": null`) to a fresh copy of DEFAULT_MESSAGES_CONFIG *before*
+ *    the split below runs, mirroring the `groups` guard in migration 4 --
+ *    otherwise `config$.next({ ...config$.value, ...parsed })` would
+ *    overwrite the default `messages` object with `null` and every
+ *    downstream `config.messages.contacts/others` read would throw (CR-01).
+ * 3. Splits the flat `messages.enabled` field into per-category
+ *    `messages.contacts.enabled` / `messages.others.enabled`. Each missing
+ *    key is backfilled independently -- a partial new-schema config with
+ *    only ONE category key present (e.g. a hand-edit or interrupted write)
+ *    must not skip the other key (CR-01). When a legacy `messages.enabled`
+ *    flag is present, BOTH missing keys inherit its value so upgraders see
+ *    no behavior change (D5-06); otherwise (no legacy flag -- a genuinely
+ *    partial new-schema config) each missing key falls back to its own
+ *    D5-05 default (contacts:true / others:false) instead of assuming
+ *    legacy semantics. Also backfills `whitelists`/`blacklists` (to `[]`)
+ *    and `sendContent` (to `false`) if missing, so a partial legacy shape
+ *    (e.g. `{ messages: { enabled: true } }` with no lists) can't crash
+ *    `shouldNotify()`'s `.length` checks (CR-01). Idempotent -- a config
+ *    already on the new shape with both keys present, and with lists/
+ *    sendContent already set, is left untouched, and `messages.enabled` is
+ *    never re-added.
+ * 4. Backfills `groups.modes` for configs written before per-group modes
  *    shipped (Phase 1 D-10, Pitfall 1). Guards against the documented legacy
  *    shape (key absent) as well as other invalid persisted shapes -- `null`
  *    (valid JSON, plausible from a hand-edited config.json) or any
@@ -157,21 +171,50 @@ export function migrateConfig(parsed: any): any {
     delete parsed.directMessageNotifications;
   }
 
+  // Normalize a null/non-object top-level `messages` first (mirrors the
+  // groups guard below), so a corrupted/hand-edited config.json can't crash
+  // every downstream consumer of messages.contacts/others (CR-01).
+  if (parsed.messages == null || typeof parsed.messages !== "object") {
+    parsed.messages = structuredClone(DEFAULT_MESSAGES_CONFIG);
+  }
+
   // D5-06: split the flat messages.enabled into per-category contacts/others
-  // flags, seeding BOTH from the legacy value. The guard (both keys absent)
-  // makes this idempotent -- a config already carrying contacts/others is
-  // skipped, and messages.enabled is never re-added.
+  // flags, backfilling each missing key independently (CR-01) -- never
+  // require BOTH keys to be absent before backfilling either one. If a
+  // legacy `messages.enabled` flag is present, seed any missing key from it
+  // so upgraders see no behavior change; otherwise fall back to that key's
+  // own D5-05 default.
   if (
-    parsed.messages &&
-    typeof parsed.messages === "object" &&
-    parsed.messages.contacts === undefined &&
+    parsed.messages.contacts === undefined ||
     parsed.messages.others === undefined
   ) {
+    const hasLegacyFlag = parsed.messages.enabled !== undefined;
     const legacyEnabled = parsed.messages.enabled === true;
-    parsed.messages.contacts = { enabled: legacyEnabled };
-    parsed.messages.others = { enabled: legacyEnabled };
-    delete parsed.messages.enabled;
+
+    if (parsed.messages.contacts === undefined)
+      parsed.messages.contacts = {
+        enabled: hasLegacyFlag
+          ? legacyEnabled
+          : DEFAULT_MESSAGES_CONFIG.contacts.enabled,
+      };
+    if (parsed.messages.others === undefined)
+      parsed.messages.others = {
+        enabled: hasLegacyFlag
+          ? legacyEnabled
+          : DEFAULT_MESSAGES_CONFIG.others.enabled,
+      };
   }
+  delete parsed.messages.enabled;
+
+  // Backfill any still-missing scalar/array fields (CR-01) so a partial
+  // legacy shape (e.g. `{ messages: { enabled: true } }` with no
+  // whitelists/blacklists) can't crash shouldNotify()'s `.length` checks.
+  if (!Array.isArray(parsed.messages.whitelists))
+    parsed.messages.whitelists = [];
+  if (!Array.isArray(parsed.messages.blacklists))
+    parsed.messages.blacklists = [];
+  if (typeof parsed.messages.sendContent !== "boolean")
+    parsed.messages.sendContent = false;
 
   // Backfill groups.modes for configs written before per-group modes shipped
   // (D-10, Pitfall 1). Normalize a null/non-object top-level `groups` first

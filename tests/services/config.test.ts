@@ -142,6 +142,63 @@ describe("services/config migrateConfig", () => {
 
     expect(migrated.groups).toEqual({ modes: {} });
   });
+
+  // CR-01 regression coverage: three reproducible crash shapes from a
+  // malformed/partial config.json, mirroring the WR-03 `groups: null` /
+  // omitted-key defensive coverage above but for `messages`.
+  test("normalizes a null top-level messages key to the full default shape instead of leaving it null (CR-01)", () => {
+    const migrated = migrateConfig({ messages: null });
+
+    expect(migrated.messages).toEqual(DEFAULT_MESSAGES_CONFIG);
+    // Must not be the same object reference as the shared default (a later
+    // config$.next() must not be able to mutate the shared constant).
+    expect(migrated.messages).not.toBe(DEFAULT_MESSAGES_CONFIG);
+  });
+
+  test("normalizes a non-object top-level messages key (e.g. a stray string) the same way (CR-01)", () => {
+    const migrated = migrateConfig({ messages: "not-an-object" });
+
+    expect(migrated.messages).toEqual(DEFAULT_MESSAGES_CONFIG);
+  });
+
+  test("backfills missing whitelists/blacklists/sendContent on a legacy messages.enabled shape so shouldNotify's .length checks can't crash (CR-01)", () => {
+    const migrated = migrateConfig({ messages: { enabled: true } });
+
+    expect(migrated.messages.contacts.enabled).toBe(true);
+    expect(migrated.messages.others.enabled).toBe(true);
+    expect(migrated.messages.whitelists).toEqual([]);
+    expect(migrated.messages.blacklists).toEqual([]);
+    expect(migrated.messages.sendContent).toBe(false);
+    expect(migrated.messages).not.toHaveProperty("enabled");
+  });
+
+  test("backfills only the missing category when a partial new-schema messages has just `contacts` present, without requiring both keys absent (CR-01)", () => {
+    const migrated = migrateConfig({
+      messages: { contacts: { enabled: true } },
+    });
+
+    // contacts is preserved exactly as provided
+    expect(migrated.messages.contacts.enabled).toBe(true);
+    // others is backfilled independently -- no legacy `enabled` flag is
+    // present, so it falls back to the D5-05 default (false), not to
+    // whatever `contacts` happened to be set to.
+    expect(migrated.messages.others.enabled).toBe(false);
+    expect(migrated.messages.whitelists).toEqual([]);
+    expect(migrated.messages.blacklists).toEqual([]);
+    expect(migrated.messages.sendContent).toBe(false);
+  });
+
+  test("backfills only the missing category when a partial new-schema messages has just `others` present (CR-01)", () => {
+    const migrated = migrateConfig({
+      messages: { others: { enabled: true } },
+    });
+
+    // others is preserved exactly as provided
+    expect(migrated.messages.others.enabled).toBe(true);
+    // contacts is backfilled independently -- no legacy `enabled` flag is
+    // present, so it falls back to the D5-05 default (true), not false.
+    expect(migrated.messages.contacts.enabled).toBe(true);
+  });
 });
 
 describe("services/config DEFAULT_MESSAGES_CONFIG", () => {
