@@ -1,80 +1,75 @@
 ---
 phase: 04-add-nip-17-dm-notifications-support-per-applesauce-docs
-fixed_at: 2026-07-10T16:36:00Z
+fixed_at: 2026-07-10T17:20:00Z
 review_path: .planning/phases/04-add-nip-17-dm-notifications-support-per-applesauce-docs/04-REVIEW.md
-iteration: 1
-findings_in_scope: 4
-fixed: 4
+iteration: 2
+findings_in_scope: 1
+fixed: 1
 skipped: 0
 status: all_fixed
 ---
 
-# Phase 4: Code Review Fix Report
+# Phase 04: Code Review Fix Report (Iteration 2)
 
-**Fixed at:** 2026-07-10T16:36:00Z
+**Fixed at:** 2026-07-10T17:20:00Z
 **Source review:** .planning/phases/04-add-nip-17-dm-notifications-support-per-applesauce-docs/04-REVIEW.md
-**Iteration:** 1
+**Iteration:** 2
 
 **Summary:**
-- Findings in scope (critical + warning): 4 (CR-01, WR-01, WR-02, WR-03)
-- Fixed: 4
+- Findings in scope (critical + warning): 1 (CR-01)
+- Fixed: 1
 - Skipped: 0
 
-CR-01, WR-01, WR-02, and WR-03 were fixed together in a single atomic commit. They are interdependent changes to the same two functions in `helpers/gift-wrap-subscription.ts` (the `seen`-set bounding logic and the new retry/fail-closed seeding wrapper both live inside/beside `notifyNewGiftWraps`), plus the caller wiring in `services/nostr.ts` and the tests that exercise both. Splitting them into separate commits would have produced intermediate commits that either didn't compile or didn't actually fix the headline bug (e.g. a WR-01-only commit still leaves CR-01's mass-renotify bug live). One commit was chosen so every commit in the history is a complete, working, test-passing state.
+CR-01 was the only Critical/Warning finding in this iteration's re-review (iteration 1's CR-01/WR-01/WR-02/WR-03 were already fixed and committed as `34dcf04`). It was fixed in a single atomic commit `d677930`, which also folds in both Info-tier items (IN-01, IN-02) because they are inseparable from the CR-01 change: IN-01 (misleading "backoff" doc comment) describes the exact retry mechanism CR-01 replaced, and IN-02 (flaky wall-clock test) is the same test file/scenario being rewritten to cover CR-01's new self-healing contract. Splitting these into separate commits would have left an intermediate commit with either a still-inaccurate doc comment describing the *new* retry code, or a test that doesn't yet exist to be made deterministic.
 
 ## Fixed Issues
 
-### CR-01: A failed/timed-out seed request silently disables all backlog dedup, causing a mass re-notification of every historical gift-wrapped DM
+### CR-01: Seed-failure fail-closed state has no self-healing recovery path — a transient relay hiccup can permanently silence NIP-17 DM notifications for the rest of the session
 
 **Files modified:** `helpers/gift-wrap-subscription.ts`, `services/nostr.ts`, `tests/helpers/gift-wrap-subscription.test.ts`
-**Commit:** `34dcf04`
-**Applied fix:** Added a new exported `seededGiftWraps(seedRequest$, live$, options)` helper in `helpers/gift-wrap-subscription.ts` that:
-1. Retries the seed request with backoff (`retry({ count: 2, delay: 2_000 })` by default) to absorb a single transient timeout/slow-relay hiccup — the common case — without ever touching `live$`.
-2. On final failure (retries exhausted), invokes an `onSeedFailure` callback (used for logging — also fixes WR-03) and then **fails closed**: a module-scoped `seedFailed` flag is set, and a `filter(() => !seedFailed)` downstream of `notifyNewGiftWraps` suppresses every emission for the remainder of that subscription's lifetime, rather than letting `live$`'s un-deduped historical backlog burst (Pitfall 1) flow through with an empty `seen` set.
+**Commit:** `d677930`
+**Applied fix:**
 
-`services/nostr.ts`'s `giftWraps$` now builds `seedRequest$` and `live$` exactly as before but composes them via `seededGiftWraps(seedRequest$, live$, { onSeedFailure: (error) => log(...) })` instead of the old `seedRequest$.pipe(catchError(() => EMPTY))` + `notifyNewGiftWraps(seed$, live$)`. The invariant now holds: a historical wrap present at startup is never notified, even when the seed request ultimately fails (this cycle goes silent and logs instead of storming), and a genuinely new wrap is still notified in the normal (seed-succeeds, possibly after a retry) case. Unused `catchError` import removed from `services/nostr.ts` (no longer used there after the change).
+Replaced the iteration-1 "bounded retry then latch `seedFailed` forever" design with a self-healing one in `seededGiftWraps`:
 
-**Trade-off (documented in code comments):** if the seed fails persistently (all retries exhausted), the process suppresses gift-wrap notifications entirely until the next natural resubscribe (`messageInboxes$`/`user$` re-emitting) rather than guessing at a partial `seen` set. This was the "fail closed" option the review itself proposed as the required property to preserve, given `messageInboxes$`/`user$` rarely change during normal operation.
+1. **Unbounded retry, capped exponential backoff.** The seed pipeline no longer has a `catchError`/give-up path. `retry({ delay: (error, attempt) => timer(min(retryDelay * 2**(attempt-1), maxRetryDelay)) })` retries forever; a failing seed just keeps backing off (2s, 4s, 8s, ... capped at 60s by default) instead of terminating after a fixed count. This also fixes IN-01: the backoff is now real (exponential-with-cap), matching the doc comment, instead of a fixed delay mislabeled as "backoff."
+2. **Latch on success, not on failure.** A `seeded` flag (default `false`) is flipped to `true` only inside a `tap({ complete: ... })` attached directly to `seedRequest$`, which fires exclusively when a seed attempt completes without erroring. The final `filter(() => seeded)` (replacing the old `filter(() => !seedFailed)`) suppresses every `live$` emission — including its un-deduped historical-backlog burst (Pitfall 1) — until `seeded` flips true, and it can only flip once (RxJS `concat` never resubscribes to `seed$` after it completes), after which it stays true for the rest of the subscription.
+3. **Self-healing, no switchMap dependency.** Because `seeded` is driven purely by the seed's own success/failure, not by any external re-subscription signal, the pipeline recovers automatically the instant a retry succeeds — whether that's because a slow relay responded on attempt 2, or because a fully-down relay set came back after several minutes of capped backoff. `services/nostr.ts`'s `giftWraps$` wiring is unchanged in structure (still calls `seededGiftWraps(seedRequest$, live$, { onSeedFailure })`) but the doc comment there was rewritten to describe the new self-healing contract instead of the old "fails closed until the next switchMap re-fire" one.
+4. **Per-attempt failure callback with caller-side throttling.** `onSeedFailure` now receives `(error, attempt)` on every failed attempt (previously only once, on final give-up, since there was no "final" anymore). `services/nostr.ts` throttles its own `log(...)` call to attempt 1 and every 5th attempt after that, so a persistently down relay logs periodically rather than once per (now-unbounded) retry.
 
-### WR-01: `seen` set in `notifyNewGiftWraps` grows without bound
+**Preserved, unchanged:** the bounded-FIFO `seen` cap (`DEFAULT_MAX_SEEN = 5_000`, `remember()`'s oldest-eviction logic) and D4-05 (no `nip04DecryptDegraded$`-style reconnect hint was added for the NIP-17 path — `notifications/messages.ts` was not touched).
 
-**Files modified:** `helpers/gift-wrap-subscription.ts`, `tests/helpers/gift-wrap-subscription.test.ts`
-**Commit:** `34dcf04`
-**Applied fix:** Added a `remember(seen, id, maxSeen)` helper used by both the seed-phase `tap` and the live-phase `filter` inside `notifyNewGiftWraps`. It inserts into `seen` and evicts the oldest entry (relying on `Set`'s insertion-order iteration) once `seen.size` exceeds `maxSeen` (default `DEFAULT_MAX_SEEN = 5_000`, configurable via a new optional 4th parameter, and forwarded through `seededGiftWraps`'s `maxSeen` option). Documented trade-off: an id evicted for being old could theoretically be re-notified if a relay resends it much later, which is an acceptable and strictly-better-than-unbounded-growth trade-off given the 5,000-entry default cap. Added test `"WR-01: the seen set is bounded -- oldest ids are evicted once maxSeen is exceeded"` with a small cap (3) to verify FIFO eviction behavior deterministically.
+**Tests:**
+- Rewrote the `seededGiftWraps` describe block (`tests/helpers/gift-wrap-subscription.test.ts`) for the new contract:
+  - `"while the seed keeps failing, live$'s backlog burst is NOT emitted -- no mass re-notification"` — a permanently-failing seed never lets `live$`'s resent historical wrap through, and the failure callback fires with the underlying error.
+  - `"after repeated seed failures, a later success does NOT mass-notify the backlog AND live notifications resume -- self-healing"` — a seed that fails 4 times then succeeds on the 5th attempt: (a) suppresses `live$`'s resent historical backlog while still failing, (b) once the seed succeeds, dedups that same historical wrap on a later resend, and (c) still notifies a genuinely new wrap — proving both "no mass re-notification" and "self-healing resumption" in one deterministic test.
+- Fixed IN-02: the new tests use `retryDelay: 0, maxRetryDelay: 0` (fast, no real backoff wait) and, instead of the old fixed `setTimeout(resolve, 20)` wall-clock guess, the recovery test awaits a `Promise` that is resolved from inside the seed's own success-branch `tap({ complete })` callback — i.e. it waits for the exact event ("the seed just succeeded"), not an assumed elapsed duration. This removes the CI-flakiness risk the wall-clock wait could have introduced under a slow runner.
 
-### WR-02: No test exercises the seed-failure path
-
-**Files modified:** `tests/helpers/gift-wrap-subscription.test.ts`
-**Commit:** `34dcf04`
-**Applied fix:** Added a new `describe("seededGiftWraps (CR-01 fail-closed seed contract)")` block with two tests:
-1. `"if the seed request errors (even after retries), live$'s backlog burst is NOT emitted -- no mass re-notification"` — asserts the CR-01 invariant directly (a historical wrap resent on `live$` after a seed failure is never emitted) and that `onSeedFailure` receives the underlying error.
-2. `"a seed that fails transiently but recovers within the retry budget still dedups the backlog normally"` — asserts that a seed which fails twice then succeeds (within `retryCount: 2`) still dedups the historical wrap normally and a genuinely new wrap still notifies, with `onSeedFailure` never invoked.
-
-Both tests directly exercise the exact scenario CR-01 flagged and confirm it is now closed.
-
-### WR-03: Seed failure is unlogged at the integration point
-
-**Files modified:** `services/nostr.ts`
-**Commit:** `34dcf04`
-**Applied fix:** `giftWraps$` now passes an `onSeedFailure` callback to `seededGiftWraps` that calls `log(...)` with a clear message ("Gift wrap seed request failed after retries -- suppressing live gift-wrap notifications until the next resubscribe to avoid mass re-notification of historical DMs") plus the underlying error message, matching the logging pattern used elsewhere in this phase (NIP-04/NIP-17 `catchError` blocks in `notifications/messages.ts`).
-
-## Out of Scope (not fixed, by design)
-
-### IN-01: NIP-17 notification path does not skip empty-content rumors
-
-**File:** `notifications/messages.ts:226-259`
-**Status:** Not applied — left as-is.
-**Reason:** This finding is Info-tier and outside the `critical_warning` fix scope for this run. It was also evaluated as a candidate "trivial parity fix," but the review itself flags a genuine ambiguity: an empty-content NIP-17 rumor could be a legitimate attachment-only message, in which case adding the guard would silently drop a real notification the NIP-04 path was never exposed to (NIP-04 has no attachment concept). Changing user-visible notification behavior without confirming intent first is not "safe" in the sense required to apply it opportunistically here. Left for a human/product decision as the review itself recommends ("Confirm intent first").
-
-## Verification
-
-- `bun test`: 77 pass, 0 fail (74 pre-existing + 3 new: 1 for WR-01 bounded eviction, 2 for WR-02/CR-01 seed-failure contract)
+**Verification:**
+- `bun test`: 77 pass, 0 fail (same count as before — 2 iteration-1 `seededGiftWraps` tests were rewritten in place rather than added alongside, since they tested the now-removed bounded-retry contract)
 - `bun run lint` (`tsc --noEmit`): clean, no errors
-- D4-05 (no reconnect/degraded hint on gift-wrap decrypt failure) untouched — `notifications/messages.ts`'s NIP-17 `catchError` block was not modified
+- Manually re-read both modified source files in full after editing to confirm no corruption and that the fail-closed/self-heal invariants hold as designed (concat ordering, tap-before-retry placement so `seeded` only latches on a true success, filter placement downstream of `notifyNewGiftWraps`)
+
+## Info items (both fixed, bundled into the CR-01 commit — see rationale above)
+
+### IN-01: "Retries the seed with backoff" is inaccurate — the retry delay is fixed, not exponential
+
+**Status:** Fixed as part of `d677930`. `retryDelay` now doubles per attempt (`retryDelay * 2 ** (attempt - 1)`), capped at `maxRetryDelay` (default 60s) — real exponential backoff, matching the doc comment, which was also reworded to be precise about the doubling/cap behavior.
+
+### IN-02: Transient-recovery test relies on a real 20ms `setTimeout` wall-clock wait
+
+**Status:** Fixed as part of `d677930`. The rewritten recovery test awaits a promise resolved from the seed's own successful-completion callback rather than a fixed wall-clock delay guess (see Tests section above).
+
+## Verification (overall)
+
+- `bun test`: 77 pass, 0 fail
+- `bun run lint` (`tsc --noEmit`): clean
+- D4-05 untouched — `notifications/messages.ts` not modified
 - NIP-04 path and `const.ts` untouched, per instructions
+- All work performed in an isolated git worktree (`gsd-reviewfix/04-*`), fast-forward-merged into `master` after the fix commit, then cleaned up (worktree removed, temp branch deleted, recovery sentinel removed)
 
 ---
 
-_Fixed: 2026-07-10T16:36:00Z_
+_Fixed: 2026-07-10T17:20:00Z_
 _Fixer: Claude (gsd-code-fixer)_
-_Iteration: 1_
+_Iteration: 2_
