@@ -254,6 +254,26 @@ export async function GroupsConfigView() {
           </div>
         </div>
 
+        <div class="form-group">
+          <label
+            for="rateLimitPerGroup"
+            style="font-weight: bold; margin-bottom: 8px; display: block;"
+          >
+            Default Per-Group Rate Limit
+          </label>
+          <input
+            type="number"
+            id="rateLimitPerGroup"
+            data-bind="rateLimitPerGroup"
+            min="0"
+            value={String(currentConfig.rateLimit.perGroup)}
+          />
+          <div class="help-text">
+            Caps notifications from any single group per window. Applied
+            automatically to newly-joined groups. 0 = unlimited.
+          </div>
+        </div>
+
         <WhitelistBlacklist
           whitelists={groupsConfig.whitelists}
           blacklists={groupsConfig.blacklists}
@@ -299,6 +319,7 @@ const route = {
       const whitelistsText = signals.whitelists as string;
       const blacklistsText = signals.blacklists as string;
       const rawRateLimitPerType = Number(signals.rateLimitPerType);
+      const rawRateLimitPerGroup = Number(signals.rateLimitPerGroup);
 
       try {
         // Parse whitelists and blacklists from textarea (one per line)
@@ -346,6 +367,11 @@ const route = {
             ? Math.floor(rawRateLimitPerType)
             : currentConfig.rateLimit.perType.groups;
 
+        const rateLimitPerGroup =
+          Number.isFinite(rawRateLimitPerGroup) && rawRateLimitPerGroup >= 0
+            ? Math.floor(rawRateLimitPerGroup)
+            : currentConfig.rateLimit.perGroup;
+
         // Update config
         const newConfig = {
           ...currentConfig,
@@ -358,6 +384,7 @@ const route = {
           },
           rateLimit: {
             ...currentConfig.rateLimit,
+            perGroup: rateLimitPerGroup,
             perType: {
               ...currentConfig.rateLimit.perType,
               groups: rateLimitPerType,
