@@ -221,12 +221,19 @@ enabledSigner
     // ProfileContent -- only for a full signed NostrEvent.
     const displayName = getMessageDisplayName(profile, sender);
 
-    await rateLimitedNotify("messages", {
-      title: `${displayName} sent you a message`,
-      message: messages.sendContent ? content : "[content omitted]",
-      icon: getProfilePicture(profile),
-      click: buildOpenLink(event),
-    });
+    // context is the raw counterparty pubkey (D7-03), NO transport prefix --
+    // a NIP-04 and a NIP-17 message from the same counterparty deliberately
+    // share ONE "messages:<pubkey>" bucket (Pitfall 4).
+    await rateLimitedNotify(
+      "messages",
+      {
+        title: `${displayName} sent you a message`,
+        message: messages.sendContent ? content : "[content omitted]",
+        icon: getProfilePicture(profile),
+        click: buildOpenLink(event),
+      },
+      { context: sender },
+    );
   });
 
 // Listen for NIP-17 messages
@@ -315,13 +322,20 @@ enabledSigner
     const content = rumor.content;
     const displayName = getMessageDisplayName(profile, sender);
 
-    await rateLimitedNotify("messages", {
-      title: `${displayName} sent you a message`,
-      message: messages.sendContent ? content : "[content omitted]",
-      icon: getProfilePicture(profile),
-      // D4-04: buildOpenLink only reads .id/.kind/.pubkey internally --
-      // safe on the unsigned rumor despite missing `.sig`. Built from the
-      // rumor (real sender), never the gift wrap (random one-time pubkey).
-      click: buildOpenLink(rumor as unknown as NostrEvent),
-    });
+    // context is the raw counterparty pubkey (D7-03), same as the NIP-04
+    // site above -- SAME raw pubkey, no transport prefix, so both transports
+    // share one "messages:<pubkey>" bucket per counterparty (Pitfall 4).
+    await rateLimitedNotify(
+      "messages",
+      {
+        title: `${displayName} sent you a message`,
+        message: messages.sendContent ? content : "[content omitted]",
+        icon: getProfilePicture(profile),
+        // D4-04: buildOpenLink only reads .id/.kind/.pubkey internally --
+        // safe on the unsigned rumor despite missing `.sig`. Built from the
+        // rumor (real sender), never the gift wrap (random one-time pubkey).
+        click: buildOpenLink(rumor as unknown as NostrEvent),
+      },
+      { context: sender },
+    );
   });

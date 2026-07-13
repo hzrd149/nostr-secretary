@@ -139,11 +139,17 @@ enabled$
       eventStore.profile(message.pubkey).pipe(defined()),
     );
 
-    // Send a notification
-    await rateLimitedNotify("groups", {
-      title: `${getDisplayName(profile)} posted to ${getTagValue(metadata, "name")}`,
-      message: message.content,
-      icon: getTagValue(metadata, "picture") ?? getProfilePicture(profile),
-      click: buildGroupLink(group, message),
-    });
+    // Send a notification -- context is the group pointer (D7-03), giving
+    // this group its own per-context rate-limit bucket independent of every
+    // other joined group's bucket (D7-01).
+    await rateLimitedNotify(
+      "groups",
+      {
+        title: `${getDisplayName(profile)} posted to ${getTagValue(metadata, "name")}`,
+        message: message.content,
+        icon: getTagValue(metadata, "picture") ?? getProfilePicture(profile),
+        click: buildGroupLink(group, message),
+      },
+      { context: encodeGroupPointer(group) },
+    );
   });
