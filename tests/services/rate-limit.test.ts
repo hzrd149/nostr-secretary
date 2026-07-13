@@ -248,6 +248,95 @@ describe("rateLimitedNotify -- CR-01 (iteration 2): defensive window:0 clamp at 
   });
 });
 
+describe("rateLimitedNotify -- context threading (D7-01/D7-03)", () => {
+  test("per-context isolation: one group hitting perGroup does not block a DIFFERENT group's first notification in the same window", async () => {
+    resetRateLimitState(7000);
+    setRateLimit({
+      window: 60,
+      global: 20,
+      perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+      perGroup: 1,
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm,
+    });
+    const { send, calls } = fakeSend();
+
+    // Group A: 1st delivers (fills perGroup=1), 2nd is context-rejected --
+    // accumulated, not delivered.
+    await rateLimitedNotify(
+      "groups",
+      { title: "gA1", message: "m" },
+      { now: 7001, send, context: "groupA" },
+    );
+    await rateLimitedNotify(
+      "groups",
+      { title: "gA2", message: "m" },
+      { now: 7002, send, context: "groupA" },
+    );
+    expect(calls).toHaveLength(1);
+
+    // Group B: its own bucket is untouched -- first notification in the
+    // SAME window still delivers, proving per-context isolation end-to-end
+    // through rateLimitedNotify (not just the pure evaluate() core).
+    await rateLimitedNotify(
+      "groups",
+      { title: "gB1", message: "m" },
+      { now: 7003, send, context: "groupB" },
+    );
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual({ title: "gB1", message: "m" });
+  });
+
+  test("no-context regression parity: rateLimitedNotify called without a context delivers exactly as in Phase 6", async () => {
+    resetRateLimitState(7100);
+    setRateLimit({
+      window: 60,
+      global: 20,
+      perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      perGroup: 1,
+      perDm: 1,
+    });
+    const { send, calls } = fakeSend();
+
+    await rateLimitedNotify(
+      "replies",
+      { title: "r1", message: "m1" },
+      { now: 7101, send },
+    );
+    await rateLimitedNotify(
+      "replies",
+      { title: "r2", message: "m2" },
+      { now: 7102, send },
+    );
+
+    // perType.replies=1 is the ONLY applicable gate (replies never carries a
+    // context) -- 1 delivered, 2nd accumulated, unaffected by perGroup/perDm.
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({ title: "r1", message: "m1" });
+  });
+});
+
+describe("rateLimitedNotify -- flush-timer no-restart on perGroup/perDm-only write (D7-09)", () => {
+  test("a config write that changes ONLY perGroup/perDm leaves the flush timer's clampWindowSeconds(window) projection unchanged", () => {
+    const before = getConfig().rateLimit;
+    setRateLimit({
+      ...before,
+      perGroup: before.perGroup + 1,
+      perDm: before.perDm + 1,
+    });
+    const after = getConfig().rateLimit;
+
+    // This is exactly the projection the flush-timer's
+    // distinctUntilChanged(map(cfg => clampWindowSeconds(cfg.window)))
+    // pipeline keys on (services/rate-limit.ts) -- an unchanged projection
+    // means the interval is never restarted for a perGroup/perDm-only
+    // write, without waiting on real timers.
+    expect(after.window).toBe(before.window);
+    expect(clampWindowSeconds(after.window)).toBe(
+      clampWindowSeconds(before.window),
+    );
+  });
+});
+
 describe("runFlush -- bypasses rateLimitedNotify entirely (D6-06)", () => {
   test("the flush's own injected send still fires while the per-type bucket remains saturated, proving it never routes back through rateLimitedNotify", async () => {
     resetRateLimitState(5000);
