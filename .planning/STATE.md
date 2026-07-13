@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06
-current_phase_name: notification-rate-limiting-per-type-and-global-with-grouped
+current_phase: 07
+current_phase_name: default-rate-limit-for-chat-groups-and-dms-on-join
 status: executing
 stopped_at: context exhaustion at 75% (2026-07-10)
-last_updated: "2026-07-13T21:23:28.903Z"
-last_activity: 2026-07-10
-last_activity_desc: Phase 06 execution started
+last_updated: "2026-07-13T21:35:52.585Z"
+last_activity: 2026-07-13
+last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 21
+  total_plans: 25
   completed_plans: 21
-  percent: 86
+  percent: 84
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/ROADMAP.md (no PROJECT.md for this project)
 
 **Core value:** Per-group and per-type notification control for a Nostr notification secretary.
-**Current focus:** Phase 06 — notification-rate-limiting-per-type-and-global-with-grouped
+**Current focus:** Phase 07 — default-rate-limit-for-chat-groups-and-dms-on-join
 
 ## Current Position
 
-Phase: 06 (notification-rate-limiting-per-type-and-global-with-grouped) — EXECUTING
+Phase: 07 (default-rate-limit-for-chat-groups-and-dms-on-join) — EXECUTING
 Plan: 1 of 4
-Status: Ready to execute
-Last activity: 2026-07-10 — Phase 06 execution started
+Status: Executing Phase 07
+Last activity: 2026-07-13 — Phase 07 execution started
 
 Progress: [██████████] 100%
 
