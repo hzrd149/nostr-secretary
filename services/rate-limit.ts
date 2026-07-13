@@ -74,10 +74,16 @@ export function resetRateLimitState(now: number): void {
 
 /** Optional injected dependencies for rateLimitedNotify/runFlush, purely for
  * test determinism -- defaults to the real clock and the real
- * sendNotification. Production callers never pass these. */
+ * sendNotification. Production callers never pass these, EXCEPT `context`
+ * (D7-03), which the 3 chat notification sites (notifications/groups.ts,
+ * notifications/messages.ts) DO pass in production -- the group pointer or
+ * DM counterparty pubkey, threaded straight into evaluate()'s optional 5th
+ * argument. The 4 non-chat call sites (replies/zaps) never pass `context`,
+ * keeping them byte-identical to Phase 6. */
 type InjectedDeps = {
   now?: number;
   send?: typeof sendNotification;
+  context?: string;
 };
 
 /**
@@ -101,16 +107,22 @@ type InjectedDeps = {
 export async function rateLimitedNotify(
   type: NotificationType,
   options: Parameters<typeof sendNotification>[0],
-  { now, send }: InjectedDeps = {},
+  { now, send, context }: InjectedDeps = {},
 ): Promise<void> {
   const effectiveNow = now ?? Date.now() / 1000;
   const effectiveSend = send ?? sendNotification;
   const { rateLimit } = getConfig();
 
-  const result = evaluate(state, type, effectiveNow, {
-    ...rateLimit,
-    window: clampWindowSeconds(rateLimit.window),
-  });
+  const result = evaluate(
+    state,
+    type,
+    effectiveNow,
+    {
+      ...rateLimit,
+      window: clampWindowSeconds(rateLimit.window),
+    },
+    context,
+  );
   state = result.state;
 
   if (result.deliver) {
