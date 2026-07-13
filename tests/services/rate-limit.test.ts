@@ -101,6 +101,8 @@ describe("rateLimitedNotify -- under-limit delivery", () => {
       window: 60,
       global: 20,
       perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+      perGroup: DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm,
     });
     const { send, calls } = fakeSend();
 
@@ -122,6 +124,8 @@ describe("rateLimitedNotify -- over-limit accumulation (D6-04)", () => {
       window: 60,
       global: 20,
       perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      perGroup: DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm,
     });
     const { send, calls } = fakeSend();
 
@@ -156,6 +160,8 @@ describe("runFlush -- one combined counts-only summary (D6-05)", () => {
       window: 60,
       global: 1,
       perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      perGroup: DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm,
     });
     const gated = fakeSend();
 
@@ -219,6 +225,8 @@ describe("rateLimitedNotify -- CR-01 (iteration 2): defensive window:0 clamp at 
       window: 0,
       global: 1,
       perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      perGroup: DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm,
     });
     const { send, calls } = fakeSend();
 
@@ -247,6 +255,8 @@ describe("runFlush -- bypasses rateLimitedNotify entirely (D6-06)", () => {
       window: 60,
       global: 1,
       perType: { replies: 1, zaps: 5, messages: 5, groups: 5 },
+      perGroup: DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm,
     });
     const gated = fakeSend();
 

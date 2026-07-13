@@ -67,6 +67,8 @@ function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       window: 60,
       global: 20,
       perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+      perGroup: 3,
+      perDm: 5,
     },
     ...overrides,
   };
@@ -108,6 +110,8 @@ describe("serializePrefs", () => {
         window: 60,
         global: 20,
         perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+        perGroup: 3,
+        perDm: 5,
       },
     });
   });
@@ -279,7 +283,7 @@ describe("sanitizeSyncedPrefs", () => {
     });
 
     expect(sanitized?.version).toBe(PREFS_VERSION);
-    expect(PREFS_VERSION).toBe(3);
+    expect(PREFS_VERSION).toBe(4);
   });
 
   test("contacts/others round-trip: serialize -> sanitize reproduces both category flags independently (D5-10)", () => {
@@ -347,6 +351,8 @@ describe("sanitizeSyncedPrefs rateLimit (D6-07 / RESEARCH Pitfall 6)", () => {
         window: 3.9,
         global: -1,
         perType: { replies: 0, zaps: "x", messages: NaN, groups: 12 },
+        perGroup: -1,
+        perDm: "x",
       },
     });
 
@@ -359,7 +365,30 @@ describe("sanitizeSyncedPrefs rateLimit (D6-07 / RESEARCH Pitfall 6)", () => {
         messages: DEFAULT_RATE_LIMIT_CONFIG.perType.messages, // NaN -> fallback
         groups: 12,
       },
+      perGroup: DEFAULT_RATE_LIMIT_CONFIG.perGroup, // negative -> fallback
+      perDm: DEFAULT_RATE_LIMIT_CONFIG.perDm, // non-numeric -> fallback
     });
+  });
+
+  test("D7-05: coerces a malformed perGroup/perDm (negative/NaN/string) per-field, preserving an explicit 0", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+        perGroup: NaN,
+        perDm: 0,
+      },
+    });
+
+    expect(sanitized?.rateLimit.perGroup).toBe(DEFAULT_RATE_LIMIT_CONFIG.perGroup);
+    expect(sanitized?.rateLimit.perDm).toBe(0); // 0 is valid, preserved
   });
 
   // The CRITICAL Pitfall-6 regression: a pre-Phase-6 peer device's payload
@@ -397,11 +426,21 @@ describe("sanitizeSyncedPrefs rateLimit (D6-07 / RESEARCH Pitfall 6)", () => {
     expect(sanitized?.rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
   });
 
-  test("serialize -> sanitize -> merge round-trips rateLimit", () => {
+  test("serialize -> sanitize -> merge round-trips rateLimit, including perGroup/perDm (D7-05)", () => {
     const config = makeConfig({
-      rateLimit: { window: 30, global: 10, perType: { replies: 1, zaps: 2, messages: 3, groups: 4 } },
+      rateLimit: {
+        window: 30,
+        global: 10,
+        perType: { replies: 1, zaps: 2, messages: 3, groups: 4 },
+        perGroup: 7,
+        perDm: 9,
+      },
     });
     const payload = serializePrefs(config);
+
+    expect(payload.rateLimit.perGroup).toBe(7);
+    expect(payload.rateLimit.perDm).toBe(9);
+
     const sanitized = sanitizeSyncedPrefs(payload);
 
     expect(sanitized?.rateLimit).toEqual(payload.rateLimit);
@@ -409,6 +448,34 @@ describe("sanitizeSyncedPrefs rateLimit (D6-07 / RESEARCH Pitfall 6)", () => {
     const current = makeConfig();
     const merged = mergePrefs(current, sanitized!);
     expect(merged.rateLimit).toEqual(payload.rateLimit);
+    expect(merged.rateLimit.perGroup).toBe(7);
+    expect(merged.rateLimit.perDm).toBe(9);
+  });
+
+  // The CRITICAL Pitfall-6 regression for D7-05: a pre-Phase-7 peer device's
+  // payload has a `rateLimit` object present (Phase 6 shipped it) but WITHOUT
+  // `perGroup`/`perDm` keys at all -- this must fall back to this device's own
+  // local defaults, NEVER to 0.
+  test("a pre-Phase-7 peer's rateLimit (present, but no perGroup/perDm keys) falls back to LOCAL defaults, never 0 (Pitfall 6, D7-05)", () => {
+    const sanitized = sanitizeSyncedPrefs({
+      whitelists: [],
+      blacklists: [],
+      messages: { contacts: { enabled: true }, others: { enabled: true }, whitelists: [], blacklists: [] },
+      replies: { enabled: true, whitelists: [], blacklists: [] },
+      zaps: { enabled: true, whitelists: [], blacklists: [] },
+      groups: { enabled: true, whitelists: [], blacklists: [], modes: {} },
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+        // no perGroup/perDm keys at all -- pre-Phase-7 peer payload
+      },
+    });
+
+    expect(sanitized?.rateLimit.perGroup).toBe(DEFAULT_RATE_LIMIT_CONFIG.perGroup);
+    expect(sanitized?.rateLimit.perDm).toBe(DEFAULT_RATE_LIMIT_CONFIG.perDm);
+    expect(sanitized?.rateLimit.perGroup).not.toBe(0);
+    expect(sanitized?.rateLimit.perDm).not.toBe(0);
   });
 
   // CR-01 (iteration 2): a synced payload with `rateLimit.window: 0` is a

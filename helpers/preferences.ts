@@ -34,8 +34,13 @@ export const PREFS_NAMESPACE = "nostr-secretary/notification-prefs";
  * the `rateLimit` key itself, not this version number, so the bump is again
  * a forward-compatibility marker rather than the fallback's detection
  * mechanism.
+ * Bumped to 4 for the D7-05 perGroup/perDm addition -- same pattern again:
+ * `asRateLimit`'s per-field fallback (below) keys off the ABSENCE of the
+ * `perGroup`/`perDm` keys themselves (falling back to this device's local
+ * `DEFAULT_RATE_LIMIT_CONFIG.perGroup`/`.perDm`, never 0), not this version
+ * number -- the bump is a forward-compat marker only.
  */
-export const PREFS_VERSION = 3;
+export const PREFS_VERSION = 4;
 
 /**
  * The rules-only subset of `AppConfig` that is serialized, NIP-44
@@ -72,6 +77,10 @@ export type SyncedPrefs = {
       messages: number;
       groups: number;
     };
+    /** Default per-single-NIP-29-group cap (D7-05/D7-06). 0 = unlimited. */
+    perGroup: number;
+    /** Default per-single-DM-counterparty cap (D7-05/D7-06). 0 = unlimited. */
+    perDm: number;
   };
 };
 
@@ -120,6 +129,8 @@ export function serializePrefs(config: AppConfig): SyncedPrefs {
         messages: config.rateLimit.perType.messages,
         groups: config.rateLimit.perType.groups,
       },
+      perGroup: config.rateLimit.perGroup,
+      perDm: config.rateLimit.perDm,
     },
   };
 }
@@ -215,6 +226,14 @@ function asMessagesCategories(raw: Record<string, unknown>): {
  * it is clamped up to `MIN_WINDOW_SECONDS` instead. `asNonNegativeInt`'s
  * own fallback (`DEFAULT_RATE_LIMIT_CONFIG.window`) is already in-range, so
  * clamping is a no-op for the missing/malformed-input path.
+ *
+ * `perGroup`/`perDm` (D7-05) follow the SAME per-field
+ * `asNonNegativeInt(source.X, DEFAULT_RATE_LIMIT_CONFIG.X)` pattern as
+ * `global`/`perType` -- an absent/malformed value (including a pre-Phase-7
+ * peer's payload, which never had these keys at all) falls back to this
+ * device's own local default, never 0 (Pitfall 6). No clamp beyond
+ * `asNonNegativeInt` -- unlike `window`, 0 has no arithmetic hazard for
+ * these fields.
  */
 function asRateLimit(raw: Record<string, unknown>): SyncedPrefs["rateLimit"] {
   const rateLimit = raw.rateLimit;
@@ -247,6 +266,11 @@ function asRateLimit(raw: Record<string, unknown>): SyncedPrefs["rateLimit"] {
         DEFAULT_RATE_LIMIT_CONFIG.perType.groups,
       ),
     },
+    perGroup: asNonNegativeInt(
+      source.perGroup,
+      DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+    ),
+    perDm: asNonNegativeInt(source.perDm, DEFAULT_RATE_LIMIT_CONFIG.perDm),
   };
 }
 
