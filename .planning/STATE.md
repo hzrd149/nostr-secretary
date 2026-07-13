@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 07
 current_phase_name: default-rate-limit-for-chat-groups-and-dms-on-join
-status: executing
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-07-13T21:57:17.096Z"
+status: verifying
+stopped_at: Completed 07-04-PLAN.md
+last_updated: "2026-07-13T22:01:45.864Z"
 last_activity: 2026-07-13
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 25
-  completed_plans: 24
-  percent: 86
+  completed_plans: 25
+  percent: 100
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 
 Phase: 07 (default-rate-limit-for-chat-groups-and-dms-on-join) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-13 — Phase 07 execution started
 
 Progress: [██████████] 100%
@@ -62,6 +62,7 @@ Progress: [██████████] 100%
 | Phase 07 P01 | 8min | 2 tasks | 2 files |
 | Phase 07 P02 | 10min | 3 tasks | 6 files |
 | Phase 07 P03 | 3 | 2 tasks | 4 files |
+| Phase 07 P04 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 07]: mergePrefs' existing rateLimit spread required no change -- it propagates perGroup/perDm for free once SyncedPrefs and asRateLimit carry them
 - [Phase 07]: Both DM transports (NIP-04 sender, NIP-17 rumor.pubkey) pass the identical raw pubkey with zero transport decoration -- one messages:<pubkey> bucket per counterparty (Pitfall 4)
 - [Phase 07]: context threaded as an options-bag key on rateLimitedNotify's existing InjectedDeps, not a new positional parameter -- zero call-site churn for replies/zaps
+- [Phase 07]: rateLimitPerGroup/rateLimitPerDm reuse the exact clamp expression from each page's existing rateLimitPerType handler rather than a shared helper, mirroring the plan's verbatim instruction
+- [Phase 07]: perGroup/perDm merged as top-level siblings of perType in newConfig.rateLimit on both pages, matching Plan 02's AppConfig shape
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ Phase 02 is code-complete (4/4 plans, UAT + verification report committed). Its 
 
 ## Session Continuity
 
-Last session: 2026-07-13T21:56:36.610Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-07-13T22:01:45.857Z
+Stopped at: Completed 07-04-PLAN.md
 Resume file: None

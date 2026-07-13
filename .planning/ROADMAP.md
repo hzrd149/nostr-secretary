@@ -118,7 +118,7 @@ Plans:
 **Goal:** Set a sensible default notification rate limit for NIP-29 groups, DMs, and other chat-type contexts where messages are likely to arrive in quick succession. When a user joins a new group or a new DM conversation is created, the default rate limit should be applied automatically so the user is not spammed during initial activity bursts.
 **Depends on:** Phase 6, Phase 3
 **Requirements:** D7-01, D7-02, D7-03, D7-04, D7-05, D7-06, D7-07, D7-08, D7-09 (decisions in 07-CONTEXT.md — no formal REQUIREMENTS.md for this project)
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 **Wave 1**
@@ -129,7 +129,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 07-03-PLAN.md — Thread context through rateLimitedNotify + wire the 3 group/DM call sites (D7-01/03/04/09)
-- [ ] 07-04-PLAN.md — Two default-limit UI fields on /groups + /messages (D7-08)
+- [x] 07-04-PLAN.md — Two default-limit UI fields on /groups + /messages (D7-08)
 
 ## Backlog
 
