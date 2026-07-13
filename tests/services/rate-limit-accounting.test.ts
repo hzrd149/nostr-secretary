@@ -35,6 +35,7 @@ describe("createRateLimitState", () => {
       globalCount: 0,
       perTypeCount: { replies: 0, zaps: 0, messages: 0, groups: 0 },
       overflow: { replies: 0, zaps: 0, messages: 0, groups: 0 },
+      contexts: {},
     });
   });
 });

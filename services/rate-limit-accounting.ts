@@ -35,6 +35,15 @@ export type RateLimitConfig = {
   global: number;
   /** Per-type limit per window; 0 = unlimited for that type. */
   perType: Record<NotificationType, number>;
+  /** Default limit for any single NIP-29 group's own bucket per window;
+   * 0 = unlimited (D7-05/06). Only consulted when evaluate() is called with
+   * type="groups" AND a context key -- has no effect on replies/zaps and no
+   * effect on other groups' own buckets (a different axis from perType). */
+  perGroup: number;
+  /** Default limit for any single DM counterparty's own bucket per window;
+   * 0 = unlimited (D7-05/06). Only consulted when evaluate() is called with
+   * type="messages" AND a context key. */
+  perDm: number;
 };
 
 /** Minimum/maximum bounds (seconds) enforced on any `window` value before it
@@ -89,6 +98,16 @@ export type RateLimitState = {
   perTypeCount: Record<NotificationType, number>;
   /** Notifications withheld (not delivered) so far this window, per type. */
   overflow: Record<NotificationType, number>;
+  /** Per-context counts for the CURRENT window only, keyed by
+   * `${type}:${contextKey}`. Lazily populated on first evaluate() call for a
+   * given key (an absent key reads as 0 -- no separate "register" step,
+   * D7-02). The WHOLE map is discarded and replaced with {} every time
+   * rollIfExpired()/createRateLimitState() tumbles to a fresh window -- this
+   * is the ENTIRE pruning mechanism (D7-02): it can never hold more entries
+   * than the number of distinct (type, context) pairs active since the last
+   * window boundary, regardless of how many groups/DMs the user has ever
+   * joined over the process lifetime. */
+  contexts: Record<string, number>;
 };
 
 /** Human-readable label for each type, used by formatOverflowSummary. Static
@@ -112,6 +131,7 @@ export function createRateLimitState(now: number): RateLimitState {
     globalCount: 0,
     perTypeCount: { replies: 0, zaps: 0, messages: 0, groups: 0 },
     overflow: { replies: 0, zaps: 0, messages: 0, groups: 0 },
+    contexts: {},
   };
 }
 
@@ -131,20 +151,42 @@ function rollIfExpired(
 }
 
 /**
+ * Maps a NotificationType to its per-context limit field on RateLimitConfig.
+ * Returns 0 (no context gate -- always under) for "replies"/"zaps" -- this is
+ * defensive only, since D7-01 means those types never receive a context
+ * argument in practice.
+ */
+function contextLimitFor(type: NotificationType, config: RateLimitConfig): number {
+  if (type === "groups") return config.perGroup;
+  if (type === "messages") return config.perDm;
+  return 0;
+}
+
+/**
  * Decides whether a notification of `type` should be delivered now or
  * accumulated into the overflow count, then returns the updated state.
  * Rolls the window first if it has expired. A notification is delivered iff
- * BOTH its per-type count and the global count are under their configured
- * limits (D6-02); a limit of 0 disables that gate (always under, D6-09).
- * When either gate is at/over its limit, the notification is NOT delivered
- * but overflow[type] is incremented -- it is always accounted for, never
- * silently dropped (D6-04).
+ * its per-type count, the global count, AND (when a `context` is given) its
+ * per-context count are all under their configured limits -- most-
+ * restrictive-wins (D6-02, D7-04); a limit of 0 disables that gate (always
+ * under, D6-09). All three gates read from the SAME `rolled` state produced
+ * by this ONE rollIfExpired call -- never a second roll. When any gate is
+ * at/over its limit, the notification is NOT delivered but overflow[type] is
+ * incremented -- it is always accounted for, never silently dropped (D6-04);
+ * `contexts` is left untouched on rejection, with no per-context overflow
+ * substructure (D7-07).
+ *
+ * `context` is an optional 5th parameter (D7-01/03) -- when omitted (or
+ * empty), the `underContext` gate is vacuously true and `contexts` is never
+ * read or written, making this function byte-identical to its pre-Phase-7
+ * behavior for every existing (context-less) call site.
  */
 export function evaluate(
   state: RateLimitState,
   type: NotificationType,
   now: number,
   config: RateLimitConfig,
+  context?: string,
 ): { deliver: boolean; state: RateLimitState } {
   const rolled = rollIfExpired(state, now, config.window);
 
@@ -152,7 +194,12 @@ export function evaluate(
   const underType = typeLimit === 0 || rolled.perTypeCount[type] < typeLimit;
   const underGlobal = config.global === 0 || rolled.globalCount < config.global;
 
-  if (underType && underGlobal) {
+  const contextKey = context ? `${type}:${context}` : undefined;
+  const contextLimit = contextKey ? contextLimitFor(type, config) : 0;
+  const contextCount = contextKey ? (rolled.contexts[contextKey] ?? 0) : 0;
+  const underContext = !contextKey || contextLimit === 0 || contextCount < contextLimit;
+
+  if (underType && underGlobal && underContext) {
     const next: RateLimitState = {
       ...rolled,
       globalCount: rolled.globalCount + 1,
@@ -160,6 +207,9 @@ export function evaluate(
         ...rolled.perTypeCount,
         [type]: rolled.perTypeCount[type] + 1,
       },
+      contexts: contextKey
+        ? { ...rolled.contexts, [contextKey]: contextCount + 1 }
+        : rolled.contexts,
     };
     return { deliver: true, state: next };
   }
