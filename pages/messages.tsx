@@ -127,6 +127,26 @@ export function MessagesConfigView() {
           </div>
         </div>
 
+        <div class="form-group">
+          <label
+            for="rateLimitPerDm"
+            style="font-weight: bold; margin-bottom: 8px; display: block;"
+          >
+            Default Per-DM Rate Limit
+          </label>
+          <input
+            type="number"
+            id="rateLimitPerDm"
+            data-bind="rateLimitPerDm"
+            min="0"
+            value={String(currentConfig.rateLimit.perDm)}
+          />
+          <div class="help-text">
+            Caps notifications from any single DM conversation per window.
+            Applied automatically to new DM conversations. 0 = unlimited.
+          </div>
+        </div>
+
         <WhitelistBlacklist
           whitelists={messagesConfig.whitelists}
           blacklists={messagesConfig.blacklists}
@@ -173,6 +193,7 @@ const route = {
       const whitelistsText = signals.whitelists as string;
       const blacklistsText = signals.blacklists as string;
       const rawRateLimitPerType = Number(signals.rateLimitPerType);
+      const rawRateLimitPerDm = Number(signals.rateLimitPerDm);
 
       try {
         // Parse whitelists and blacklists from textarea (one per line)
@@ -201,6 +222,11 @@ const route = {
             ? Math.floor(rawRateLimitPerType)
             : currentConfig.rateLimit.perType.messages;
 
+        const rateLimitPerDm =
+          Number.isFinite(rawRateLimitPerDm) && rawRateLimitPerDm >= 0
+            ? Math.floor(rawRateLimitPerDm)
+            : currentConfig.rateLimit.perDm;
+
         const newConfig = {
           ...currentConfig,
           messages: {
@@ -212,6 +238,7 @@ const route = {
           },
           rateLimit: {
             ...currentConfig.rateLimit,
+            perDm: rateLimitPerDm,
             perType: {
               ...currentConfig.rateLimit.perType,
               messages: rateLimitPerType,
