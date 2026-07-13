@@ -23,6 +23,8 @@ function makeConfig(overrides: Partial<RateLimitConfig> = {}): RateLimitConfig {
     window: 60,
     global: 20,
     perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+    perGroup: 3,
+    perDm: 5,
     ...overrides,
   };
 }
@@ -192,6 +194,175 @@ describe("evaluate -- window roll", () => {
     expect(rolled.state.windowStart).toBe(1060);
     expect(rolled.state.globalCount).toBe(1);
     expect(rolled.state.overflow.replies).toBe(0);
+  });
+});
+
+describe("evaluate -- per-context lazy-create (D7-02)", () => {
+  test("first evaluate for an unseen context key delivers and lazily sets contexts[key] to 1", () => {
+    const state = createRateLimitState(1000);
+    const config = makeConfig();
+    expect(state.contexts["groups:g1"]).toBeUndefined();
+
+    const result = evaluate(state, "groups", 1001, config, "g1");
+
+    expect(result.deliver).toBe(true);
+    expect(result.state.contexts["groups:g1"]).toBe(1);
+  });
+});
+
+describe("evaluate -- per-context isolation (D7-01)", () => {
+  test("one context reaching perGroup does not block a DIFFERENT context of the same type in the same window", () => {
+    const config = makeConfig({ perGroup: 2 });
+    let state = createRateLimitState(1000);
+
+    // Fill g1 to its perGroup limit (2/2).
+    state = evaluate(state, "groups", 1001, config, "g1").state;
+    state = evaluate(state, "groups", 1002, config, "g1").state;
+    expect(state.contexts["groups:g1"]).toBe(2);
+
+    // g1's 3rd notification overflows.
+    const g1Overflow = evaluate(state, "groups", 1003, config, "g1");
+    expect(g1Overflow.deliver).toBe(false);
+
+    // A DIFFERENT context g2 still delivers in the SAME window.
+    const g2Result = evaluate(state, "groups", 1004, config, "g2");
+    expect(g2Result.deliver).toBe(true);
+    expect(g2Result.state.contexts["groups:g2"]).toBe(1);
+  });
+});
+
+describe("evaluate -- most-restrictive-wins layering table (D7-04)", () => {
+  test("context-under + type-under + global-under => deliver", () => {
+    const config = makeConfig({ global: 20, perType: { replies: 5, zaps: 5, messages: 5, groups: 5 }, perGroup: 3 });
+    const state = createRateLimitState(1000);
+    const result = evaluate(state, "groups", 1001, config, "g1");
+    expect(result.deliver).toBe(true);
+  });
+
+  test("context-over + type-under + global-under => no deliver, overflow accumulates", () => {
+    const config = makeConfig({ global: 20, perType: { replies: 5, zaps: 5, messages: 5, groups: 5 }, perGroup: 1 });
+    let state = createRateLimitState(1000);
+    state = evaluate(state, "groups", 1001, config, "g1").state; // fills g1 to 1/1 (perGroup)
+    const result = evaluate(state, "groups", 1002, config, "g1");
+    expect(result.deliver).toBe(false);
+    expect(result.state.overflow.groups).toBe(1);
+  });
+
+  test("context-under + type-over + global-under => no deliver, overflow accumulates", () => {
+    const config = makeConfig({ global: 20, perType: { replies: 5, zaps: 5, messages: 5, groups: 1 }, perGroup: 5 });
+    let state = createRateLimitState(1000);
+    state = evaluate(state, "groups", 1001, config, "g1").state; // fills perType.groups to 1/1
+    // A DIFFERENT context, still under its own perGroup limit, but perType.groups is exhausted.
+    const result = evaluate(state, "groups", 1002, config, "g2");
+    expect(result.deliver).toBe(false);
+    expect(result.state.overflow.groups).toBe(1);
+  });
+
+  test("context-under + type-under + global-over => no deliver, overflow accumulates", () => {
+    const config = makeConfig({ global: 1, perType: { replies: 5, zaps: 5, messages: 5, groups: 5 }, perGroup: 5 });
+    let state = createRateLimitState(1000);
+    state = evaluate(state, "groups", 1001, config, "g1").state; // fills global to 1/1
+    // A DIFFERENT context, still under its own perGroup limit, but global is exhausted.
+    const result = evaluate(state, "groups", 1002, config, "g2");
+    expect(result.deliver).toBe(false);
+    expect(result.state.overflow.groups).toBe(1);
+  });
+});
+
+describe("evaluate -- per-context window-prune (D7-02)", () => {
+  test("contexts resets to {} on the SAME window tumble as perTypeCount/overflow", () => {
+    const config = makeConfig({ window: 60, perGroup: 5 });
+    let state = createRateLimitState(1000);
+    state = evaluate(state, "groups", 1001, config, "g1").state;
+    expect(state.contexts["groups:g1"]).toBe(1);
+
+    // now advances past windowStart + window: the window has rolled.
+    const rolled = evaluate(state, "groups", 1060, config, "g1");
+    expect(rolled.state.windowStart).toBe(1060);
+    expect(rolled.state.contexts).toEqual({ "groups:g1": 1 });
+    // The map was discarded and recreated (not incremented from the stale 1) --
+    // confirm by checking it did NOT carry over as 2.
+    expect(rolled.deliver).toBe(true);
+  });
+});
+
+describe("evaluate -- per-context overflow-rollup into per-type overflow only (D7-07)", () => {
+  test("a context-rejected notification increments overflow[type] only; contexts[key] is left unchanged and no per-context overflow field exists", () => {
+    const config = makeConfig({ perGroup: 1 });
+    let state = createRateLimitState(1000);
+    state = evaluate(state, "groups", 1001, config, "g1").state; // fills g1 to 1/1
+    expect(state.contexts["groups:g1"]).toBe(1);
+
+    const rejected = evaluate(state, "groups", 1002, config, "g1");
+    expect(rejected.deliver).toBe(false);
+    expect(rejected.state.overflow.groups).toBe(1);
+    // contexts[key] is unchanged by the rejection.
+    expect(rejected.state.contexts["groups:g1"]).toBe(1);
+    // No per-context overflow substructure exists anywhere on the state.
+    expect(Object.keys(rejected.state)).toEqual([
+      "windowStart",
+      "globalCount",
+      "perTypeCount",
+      "overflow",
+      "contexts",
+    ]);
+  });
+});
+
+describe("evaluate -- 0 = unlimited for perGroup/perDm (D7-06)", () => {
+  test("perGroup === 0 always delivers for the same context regardless of accumulated count", () => {
+    const config = makeConfig({ global: 1000, perType: { replies: 5, zaps: 5, messages: 5, groups: 1000 }, perGroup: 0 });
+    let state = createRateLimitState(1000);
+
+    for (let i = 0; i < 50; i++) {
+      const result = evaluate(state, "groups", 1001 + i, config, "g1");
+      expect(result.deliver).toBe(true);
+      state = result.state;
+    }
+    expect(state.overflow.groups).toBe(0);
+  });
+
+  test("perDm === 0 always delivers for the same context regardless of accumulated count", () => {
+    const config = makeConfig({ global: 1000, perType: { replies: 5, zaps: 5, messages: 1000, groups: 5 }, perDm: 0 });
+    let state = createRateLimitState(1000);
+
+    for (let i = 0; i < 50; i++) {
+      const result = evaluate(state, "messages", 1001 + i, config, "pubkeyabc");
+      expect(result.deliver).toBe(true);
+      state = result.state;
+    }
+    expect(state.overflow.messages).toBe(0);
+  });
+});
+
+describe("evaluate -- DM counterparty sharing (D7-01, Pitfall 4)", () => {
+  test("two evaluates with type messages and the SAME context pubkey share ONE messages:<pubkey> bucket", () => {
+    const config = makeConfig({ perDm: 5 });
+    let state = createRateLimitState(1000);
+
+    // First "message" from the counterparty (e.g. via NIP-04).
+    const first = evaluate(state, "messages", 1001, config, "pubkeyabc");
+    expect(first.deliver).toBe(true);
+    expect(first.state.contexts["messages:pubkeyabc"]).toBe(1);
+    state = first.state;
+
+    // Second "message" from the SAME counterparty (e.g. via NIP-17) increments
+    // the SAME composite key, not a separate transport-tagged one.
+    const second = evaluate(state, "messages", 1002, config, "pubkeyabc");
+    expect(second.deliver).toBe(true);
+    expect(second.state.contexts["messages:pubkeyabc"]).toBe(2);
+    expect(Object.keys(second.state.contexts)).toEqual(["messages:pubkeyabc"]);
+  });
+});
+
+describe("evaluate -- no-context regression parity (D7-01/09)", () => {
+  test("evaluate() called without a context argument behaves byte-identical to the pre-Phase-7 implementation -- contexts is left untouched", () => {
+    const config = makeConfig();
+    const state = createRateLimitState(1000);
+    const result = evaluate(state, "replies", 1001, config);
+
+    expect(result.deliver).toBe(true);
+    expect(result.state.contexts).toEqual({});
   });
 });
 
