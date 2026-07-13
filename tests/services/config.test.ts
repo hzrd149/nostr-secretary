@@ -218,16 +218,23 @@ describe("services/config DEFAULT_MESSAGES_CONFIG", () => {
 });
 
 describe("services/config DEFAULT_RATE_LIMIT_CONFIG (D6-07/D6-09)", () => {
-  test("is window:60, global:20, perType:5 for each of the four types", () => {
+  test("is window:60, global:20, perType:5 for each of the four types, perGroup:3, perDm:5", () => {
     expect(DEFAULT_RATE_LIMIT_CONFIG).toEqual({
       window: 60,
       global: 20,
       perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+      perGroup: 3,
+      perDm: 5,
     });
   });
 
   test("a fresh config$ value has rateLimit deep-equal to DEFAULT_RATE_LIMIT_CONFIG", () => {
     expect(getConfig().rateLimit).toEqual(DEFAULT_RATE_LIMIT_CONFIG);
+  });
+
+  test("a fresh config$ value seeds rateLimit.perGroup === 3 and rateLimit.perDm === 5 (D7-05/D7-06)", () => {
+    expect(getConfig().rateLimit.perGroup).toBe(3);
+    expect(getConfig().rateLimit.perDm).toBe(5);
   });
 });
 
@@ -285,6 +292,8 @@ describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () =>
         window: 45,
         global: 12,
         perType: { replies: 1, zaps: 2, messages: 3, groups: 4 },
+        perGroup: 2,
+        perDm: 6,
       },
     };
 
@@ -294,6 +303,8 @@ describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () =>
       window: 45,
       global: 12,
       perType: { replies: 1, zaps: 2, messages: 3, groups: 4 },
+      perGroup: 2,
+      perDm: 6,
     });
   });
 
@@ -303,11 +314,15 @@ describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () =>
         window: 60,
         global: 0,
         perType: { replies: 0, zaps: 5, messages: 5, groups: 5 },
+        perGroup: 0,
+        perDm: 0,
       },
     });
 
     expect(migrated.rateLimit.global).toBe(0);
     expect(migrated.rateLimit.perType.replies).toBe(0);
+    expect(migrated.rateLimit.perGroup).toBe(0);
+    expect(migrated.rateLimit.perDm).toBe(0);
   });
 
   test("WR-03: NaN in window/global/perType is treated as invalid and backfilled to the default, not passed through", () => {
@@ -339,6 +354,58 @@ describe("services/config migrateConfig rateLimit backfill (D6-07/D6-09)", () =>
     expect(migrated.rateLimit.global).toBe(DEFAULT_RATE_LIMIT_CONFIG.global);
     expect(migrated.rateLimit.perType.replies).toBe(
       DEFAULT_RATE_LIMIT_CONFIG.perType.replies,
+    );
+  });
+
+  test("D7-05/D7-06: migrateConfig backfills missing perGroup/perDm with the defaults", () => {
+    const migrated = migrateConfig({
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+      },
+    });
+
+    expect(migrated.rateLimit.perGroup).toBe(DEFAULT_RATE_LIMIT_CONFIG.perGroup);
+    expect(migrated.rateLimit.perDm).toBe(DEFAULT_RATE_LIMIT_CONFIG.perDm);
+  });
+
+  test("D7-05/D7-06: migrateConfig coerces a negative/NaN/string perGroup/perDm to the default", () => {
+    const migratedNegative = migrateConfig({
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+        perGroup: -1,
+        perDm: 5,
+      },
+    });
+    expect(migratedNegative.rateLimit.perGroup).toBe(
+      DEFAULT_RATE_LIMIT_CONFIG.perGroup,
+    );
+
+    const migratedNaN = migrateConfig({
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+        perGroup: 3,
+        perDm: NaN,
+      },
+    });
+    expect(migratedNaN.rateLimit.perDm).toBe(DEFAULT_RATE_LIMIT_CONFIG.perDm);
+
+    const migratedString = migrateConfig({
+      rateLimit: {
+        window: 60,
+        global: 20,
+        perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+        perGroup: "x",
+        perDm: 5,
+      },
+    });
+    expect(migratedString.rateLimit.perGroup).toBe(
+      DEFAULT_RATE_LIMIT_CONFIG.perGroup,
     );
   });
 

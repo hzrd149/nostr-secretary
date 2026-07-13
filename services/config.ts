@@ -80,6 +80,12 @@ export type AppConfig = {
       messages: number;
       groups: number;
     };
+    /** Default per-single-NIP-29-group notifications-per-window cap, applied
+     *  to every group's own bucket (D7-05/D7-06). 0 = unlimited. */
+    perGroup: number;
+    /** Default per-single-DM-counterparty notifications-per-window cap,
+     *  applied to every DM conversation's own bucket (D7-05/D7-06). 0 = unlimited. */
+    perDm: number;
   };
 };
 
@@ -109,14 +115,21 @@ export const DEFAULT_MESSAGES_CONFIG: AppConfig["messages"] = {
  * users can turn rate limiting off per-type or globally. New installs seed
  * `config$` from this constant; `migrateConfig` backfills it (defensively,
  * per-sub-field) for existing configs so the behavior change is additive,
- * never surprising (see CHANGELOG). Exported so tests and the sync-side
- * absent-key fallback (helpers/preferences.ts, RESEARCH Pitfall 6) can
- * reference it directly rather than duplicating the literal shape.
+ * never surprising (see CHANGELOG). Also carries the D7-06 default
+ * per-context caps -- `perGroup: 3` (default per single NIP-29 group) and
+ * `perDm: 5` (default per single DM counterparty) -- top-level scalar
+ * siblings of `perType` applied to every group/DM's own bucket
+ * (D7-05/D7-06); `0` means unlimited for that context too. Exported so
+ * tests and the sync-side absent-key fallback (helpers/preferences.ts,
+ * RESEARCH Pitfall 6) can reference it directly rather than duplicating the
+ * literal shape.
  */
 export const DEFAULT_RATE_LIMIT_CONFIG: AppConfig["rateLimit"] = {
   window: 60,
   global: 20,
   perType: { replies: 5, zaps: 5, messages: 5, groups: 5 },
+  perGroup: 3,
+  perDm: 5,
 };
 
 const config$ = new BehaviorSubject<AppConfig>({
@@ -331,6 +344,16 @@ export function migrateConfig(parsed: any): any {
           parsed.rateLimit.perType[key] = DEFAULT_RATE_LIMIT_CONFIG.perType[key];
       }
     }
+
+    // D7-05/D7-06: backfill the two default per-context caps the same
+    // defensive way as `global` above -- an explicit 0 (unlimited) is
+    // preserved, only a missing/negative/NaN/non-number value is replaced
+    // with the default. No new clamp constant (unlike `window`, 0 has no
+    // arithmetic hazard for these fields -- RESEARCH Pitfall 2).
+    if (!isValidNonNegativeNumber(parsed.rateLimit.perGroup))
+      parsed.rateLimit.perGroup = DEFAULT_RATE_LIMIT_CONFIG.perGroup;
+    if (!isValidNonNegativeNumber(parsed.rateLimit.perDm))
+      parsed.rateLimit.perDm = DEFAULT_RATE_LIMIT_CONFIG.perDm;
   }
 
   return parsed;
