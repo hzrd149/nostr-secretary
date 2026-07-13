@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 07
 current_phase_name: default-rate-limit-for-chat-groups-and-dms-on-join
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-07-13T21:42:32.664Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-07-13T21:51:02.244Z"
 last_activity: 2026-07-13
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
   percent: 86
 ---
 
@@ -29,7 +29,7 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 ## Current Position
 
 Phase: 07 (default-rate-limit-for-chat-groups-and-dms-on-join) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-07-13 — Phase 07 execution started
 
@@ -60,6 +60,7 @@ Progress: [██████████] 100%
 | Phase 01 P04 | 35min | 2 tasks | 1 files |
 | Phase 01 P05 | 8min | 1 tasks | 1 files |
 | Phase 07 P01 | 8min | 2 tasks | 2 files |
+| Phase 07 P02 | 10min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,9 @@ Recent decisions affecting current work:
 - [Phase 01]: PATCH seeds modes from the existing config.groups.modes (not an empty object) so orphaned entries for left groups survive across saves (D-10)
 - [Phase 01]: The /notifications zero-groups check sums summarizeGroupModes' three counts only (no new groups$ observable), per the plan's explicit constraint (D-05)
 - [Phase 07]: perGroup/perDm added as top-level scalar siblings of perType (not nested) -- different axis from perType
+- [Phase 07]: perGroup/perDm defaults (3/5) live on DEFAULT_RATE_LIMIT_CONFIG as the single source of truth for config seed, migrateConfig, and asRateLimit's fallback
+- [Phase 07]: No new clamp-bounds constant for perGroup/perDm -- 0 has no arithmetic hazard for these fields, unlike window
+- [Phase 07]: mergePrefs' existing rateLimit spread required no change -- it propagates perGroup/perDm for free once SyncedPrefs and asRateLimit carry them
 
 ### Pending Todos
 
@@ -118,6 +122,6 @@ Phase 02 is code-complete (4/4 plans, UAT + verification report committed). Its 
 
 ## Session Continuity
 
-Last session: 2026-07-13T21:42:32.656Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-07-13T21:51:02.237Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None

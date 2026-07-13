@@ -118,13 +118,13 @@ Plans:
 **Goal:** Set a sensible default notification rate limit for NIP-29 groups, DMs, and other chat-type contexts where messages are likely to arrive in quick succession. When a user joins a new group or a new DM conversation is created, the default rate limit should be applied automatically so the user is not spammed during initial activity bursts.
 **Depends on:** Phase 6, Phase 3
 **Requirements:** D7-01, D7-02, D7-03, D7-04, D7-05, D7-06, D7-07, D7-08, D7-09 (decisions in 07-CONTEXT.md — no formal REQUIREMENTS.md for this project)
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 07-01-PLAN.md — Pure per-context accounting extension: contexts map + evaluate() underContext gate + test matrix (D7-01/02/03/04/07)
-- [ ] 07-02-PLAN.md — perGroup/perDm config + migration + kind-30078 sync + PREFS_VERSION bump + CHANGELOG (D7-05/06)
+- [x] 07-02-PLAN.md — perGroup/perDm config + migration + kind-30078 sync + PREFS_VERSION bump + CHANGELOG (D7-05/06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
