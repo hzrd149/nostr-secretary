@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 07
 current_phase_name: default-rate-limit-for-chat-groups-and-dms-on-join
 status: executing
-stopped_at: context exhaustion at 75% (2026-07-10)
-last_updated: "2026-07-13T21:35:52.585Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-07-13T21:42:32.664Z"
 last_activity: 2026-07-13
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 25
-  completed_plans: 21
-  percent: 84
+  completed_plans: 22
+  percent: 86
 ---
 
 # Project State
@@ -29,8 +29,8 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 ## Current Position
 
 Phase: 07 (default-rate-limit-for-chat-groups-and-dms-on-join) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 07
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-07-13 — Phase 07 execution started
 
 Progress: [██████████] 100%
@@ -59,6 +59,7 @@ Progress: [██████████] 100%
 | Phase 01-nip-29-group-notification-modes P03 | 4min | 2 tasks | 2 files |
 | Phase 01 P04 | 35min | 2 tasks | 1 files |
 | Phase 01 P05 | 8min | 1 tasks | 1 files |
+| Phase 07 P01 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Recent decisions affecting current work:
 - [Phase 01]: getJoinedGroups() extracted as one shared function called by both GET and PATCH so the 'same filter/map chain' invariant is structurally guaranteed (Pitfall 2)
 - [Phase 01]: PATCH seeds modes from the existing config.groups.modes (not an empty object) so orphaned entries for left groups survive across saves (D-10)
 - [Phase 01]: The /notifications zero-groups check sums summarizeGroupModes' three counts only (no new groups$ observable), per the plan's explicit constraint (D-05)
+- [Phase 07]: perGroup/perDm added as top-level scalar siblings of perType (not nested) -- different axis from perType
 
 ### Pending Todos
 
@@ -116,6 +118,6 @@ Phase 02 is code-complete (4/4 plans, UAT + verification report committed). Its 
 
 ## Session Continuity
 
-Last session: 2026-07-10T22:45:56.188Z
-Stopped at: context exhaustion at 75% (2026-07-10)
+Last session: 2026-07-13T21:42:32.656Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
