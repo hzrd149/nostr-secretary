@@ -6,14 +6,14 @@ current_phase: 07
 current_phase_name: default-rate-limit-for-chat-groups-and-dms-on-join
 status: executing
 stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-07-13T21:51:02.244Z"
+last_updated: "2026-07-13T21:57:17.096Z"
 last_activity: 2026-07-13
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
   percent: 86
 ---
 
@@ -29,7 +29,7 @@ See: .planning/ROADMAP.md (no PROJECT.md for this project)
 ## Current Position
 
 Phase: 07 (default-rate-limit-for-chat-groups-and-dms-on-join) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-07-13 — Phase 07 execution started
 
@@ -61,6 +61,7 @@ Progress: [██████████] 100%
 | Phase 01 P05 | 8min | 1 tasks | 1 files |
 | Phase 07 P01 | 8min | 2 tasks | 2 files |
 | Phase 07 P02 | 10min | 3 tasks | 6 files |
+| Phase 07 P03 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 07]: perGroup/perDm defaults (3/5) live on DEFAULT_RATE_LIMIT_CONFIG as the single source of truth for config seed, migrateConfig, and asRateLimit's fallback
 - [Phase 07]: No new clamp-bounds constant for perGroup/perDm -- 0 has no arithmetic hazard for these fields, unlike window
 - [Phase 07]: mergePrefs' existing rateLimit spread required no change -- it propagates perGroup/perDm for free once SyncedPrefs and asRateLimit carry them
+- [Phase 07]: Both DM transports (NIP-04 sender, NIP-17 rumor.pubkey) pass the identical raw pubkey with zero transport decoration -- one messages:<pubkey> bucket per counterparty (Pitfall 4)
+- [Phase 07]: context threaded as an options-bag key on rateLimitedNotify's existing InjectedDeps, not a new positional parameter -- zero call-site churn for replies/zaps
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ Phase 02 is code-complete (4/4 plans, UAT + verification report committed). Its 
 
 ## Session Continuity
 
-Last session: 2026-07-13T21:51:02.237Z
+Last session: 2026-07-13T21:56:36.610Z
 Stopped at: Completed 07-02-PLAN.md
 Resume file: None
